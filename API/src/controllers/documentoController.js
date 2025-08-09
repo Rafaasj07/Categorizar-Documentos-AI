@@ -1,13 +1,10 @@
-// Importa a função que chama o modelo de IA da AWS Bedrock
+import { v4 as uuidv4 } from 'uuid';
+import { uploadParaS3 } from '../services/s3Service.js';
+import { registrarMetadados, atualizarMetadados } from '../services/dynamoDbService.js';
 import { invocarBedrock } from "../services/bedrockService.js";
-
-// Importa a biblioteca para leitura de PDFs
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
-// A linha que configura o 'worker' do pdfjs foi removida intencionalmente
-// Isso evita erro no Node.js, já que não há suporte a Web Workers no ambiente de backend
 
-// Função para extrair o texto de um arquivo PDF
 async function extrairTextoDoPdf(dataBuffer) {
     // Converte o buffer do multer (req.file.buffer) para Uint8Array, que é o formato esperado pela lib
     const uint8Array = new Uint8Array(dataBuffer);
@@ -30,21 +27,36 @@ async function extrairTextoDoPdf(dataBuffer) {
     return textoCompleto;
 }
 
-// Função controller para lidar com o upload do PDF e enviar para a IA categorizar
 export const categorizarComArquivo = async (req, res) => {
     try {
-        // Verifica se um arquivo foi enviado
+        
         if (!req.file) {
             return res.status(400).json({ erro: 'Nenhum arquivo enviado.' });
         }
-
-        // Extrai o texto do PDF usando a função anterior
+        const doc_uuid = uuidv4();
+        
+        console.log(`[${doc_uuid}] Iniciando upload para o S3...`);
+        const { s3Key, bucketName } = await uploadParaS3(req.file.buffer, req.file.originalname);
+        
+        console.log(`[${doc_uuid}] Registrando metadados iniciais no DynamoDB...`);
+        const metadadosIniciais = {
+            doc_uuid,
+            s3Key,
+            bucketName,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            contentType: req.file.mimetype,
+            userId: "user-placeholder-id",
+            uploadedTimeStamp: new Date().toISOString(),
+            status: "UPLOADED"
+        };
+        await registrarMetadados(metadadosIniciais);
+   
+        console.log(`[${doc_uuid}] Extraindo texto do PDF...`);
         const textoDoPdf = await extrairTextoDoPdf(req.file.buffer);
 
-        // Pega um texto opcional enviado pelo usuário no corpo da requisição
         const { promptUsuario } = req.body;
 
-        // Monta o prompt que será enviado à IA da Bedrock
         const promptFinal = `
 Você é um modelo de linguagem especializado em análise documental.
 Analise o seguinte conteúdo extraído de um documento PDF e realize as seguintes tarefas:
@@ -70,9 +82,11 @@ Responda SOMENTE no formato JSON com a seguinte estrutura exata:
   }
 }
 `;
-
-        // Envia o prompt para o modelo da AWS Bedrock e aguarda a resposta
+   // Envia o prompt para o modelo da AWS Bedrock e aguarda a resposta
         const respostaJson = await invocarBedrock(promptFinal);
+
+        console.log(`[${doc_uuid}] Atualizando status para PROCESSED no DynamoDB...`);
+        await atualizarMetadados(doc_uuid, "PROCESSED", respostaJson);
 
         // Retorna o JSON gerado pela IA como resposta da API
         res.json(respostaJson);

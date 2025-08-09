@@ -9,13 +9,7 @@ import dotenv from 'dotenv';
 dotenv.config(); // Carrega variáveis do arquivo .env (credenciais, região)
 
 // Configura o cliente Bedrock com região e credenciais AWS
-const client = new BedrockRuntimeClient({
-    region: process.env.AWS_REGION,
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    },
-});
+const client = new BedrockRuntimeClient({});
 
 // Define qual modelo será usado (Claude 3 Haiku, versão de março/2024)
 const modelId = "anthropic.claude-3-haiku-20240307-v1:0";
