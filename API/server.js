@@ -1,17 +1,11 @@
-// Importa o framework Express para criar o servidor
-import express from 'express';
-
-// Importa as rotas relacionadas a documentos
-import documentoRoute from './src/routes/documentoRoute.js';
-
-// Importa o CORS para permitir requisições de outros domínios
-import cors from 'cors';
-
-// Importa o dotenv para carregar variáveis de ambiente do arquivo .env
+// --- IMPORTAÇÕES ESSENCIAIS ---
+// 1. Carrega as variáveis de ambiente PRIMEIRO
 import dotenv from 'dotenv';
-
-// Carrega as variáveis de ambiente
 dotenv.config();
+// 2. Importa os outros módulos
+import express from 'express';
+import documentoRoute from './src/routes/documentoRoute.js';
+import cors from 'cors';
 
 // Cria a aplicação Express
 const app = express();

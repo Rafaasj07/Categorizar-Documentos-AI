@@ -1,22 +1,21 @@
-// Importa o Express para criar rotas
-import express from 'express';
+import express from 'express'; // Framework para rotas e APIs
+import multer from 'multer'; // Middleware para upload de arquivos
+import {
+    categorizarComArquivo,
+    buscarDocumentosController,
+    downloadDocumentoController
+} from '../controllers/documentoController.js'; // Importa controllers
 
-// Importa o Multer para lidar com upload de arquivos
-import multer from 'multer';
+const router = express.Router(); // Cria instância de rotas
+const upload = multer({ storage: multer.memoryStorage() }); // Configura upload em memória
 
-// Importa o controlador que será chamado quando essa rota for acessada
-import { categorizarComArquivo } from '../controllers/documentoController.js';
-
-// Cria um roteador do Express
-const router = express.Router();
-
-// Configura o Multer para armazenar o arquivo na memória (em vez de salvar no disco)
-const upload = multer({ storage: multer.memoryStorage() });
-
-// Define a rota POST '/categorizar-com-arquivo'
-// - `upload.single('arquivo')`: espera um único arquivo no campo 'arquivo' do formulário
-// - `categorizarComArquivo`: função que será chamada após o upload
+// Rota para envio e categorização de arquivo
 router.post('/categorizar-com-arquivo', upload.single('arquivo'), categorizarComArquivo);
 
-// Exporta o roteador para ser usado no app principal
-export default router;
+// Rota para busca de documentos
+router.get('/buscar', buscarDocumentosController);
+
+// Rota para gerar link de download
+router.get('/download', downloadDocumentoController);
+
+export default router; // Exporta rotas

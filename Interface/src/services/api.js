@@ -1,40 +1,68 @@
 import axios from 'axios';
 
-// A URL base da API é lida do arquivo .env (usando Vite)
 const API_URL = import.meta.env.VITE_API_URL;
 
-// Função que envia o prompt + arquivo para a API
+/**
+ * Envia um arquivo PDF junto com uma instrução adicional para análise.
+ * Utiliza FormData para multipart/form-data.
+ * @param {string} promptUsuario - Texto adicional para a IA usar na análise.
+ * @param {File} arquivo - Arquivo PDF selecionado pelo usuário.
+ * @returns {Promise<Object>} - Resposta JSON da API com a análise.
+ */
 export const apiCategorizarComArquivo = async (promptUsuario, arquivo) => {
     try {
-        // Cria um FormData, que é necessário para enviar arquivos via HTTP
         const formData = new FormData();
-
-        // Adiciona o prompt do usuário no corpo da requisição
         formData.append('promptUsuario', promptUsuario);
-
-        // Adiciona o arquivo PDF com o nome esperado pelo backend: 'arquivo'
         formData.append('arquivo', arquivo);
 
-        // Faz uma requisição POST para o endpoint backend
         const response = await axios.post(
-            `${API_URL}documento/categorizar-com-arquivo`, // URL final da rota
-            formData, // Corpo da requisição
+            `${API_URL}documento/categorizar-com-arquivo`,
+            formData,
             {
                 headers: {
-                    // Define o cabeçalho correto para envio de arquivos
                     'Content-Type': 'multipart/form-data'
                 }
             }
         );
-
-        // Retorna o corpo da resposta (JSON) com os dados gerados pela IA
         return response.data;
-
     } catch (err) {
-        // Loga o erro no console para fins de debug
         console.error("Erro ao chamar a API com arquivo", err);
+        throw err;
+    }
+};
 
-        // Repassa o erro para quem chamou essa função (ex: hook ou componente)
+/**
+ * Busca documentos na API, filtrando pelo termo informado.
+ * @param {string} termo - Texto para filtro na busca (nome, categoria, resumo).
+ * @returns {Promise<Array>} - Array com os documentos encontrados.
+ */
+export const apiBuscarDocumentos = async (termo) => {
+    try {
+        const response = await axios.get(`${API_URL}documento/buscar`, {
+            params: { termo } // Passa o termo como query parameter
+        });
+        return response.data;
+    } catch (err) {
+        console.error("Erro ao buscar documentos", err);
+        throw err;
+    }
+};
+
+/**
+ * Solicita a geração da URL pré-assinada para download de um arquivo no S3.
+ * @param {string} bucket - Nome do bucket onde está o arquivo.
+ * @param {string} key - Chave (caminho) do arquivo no bucket.
+ * @returns {Promise<string>} - URL temporária para download do arquivo.
+ */
+export const apiDownloadDocumento = async (bucket, key) => {
+    try {
+        // Passa bucket e key como parâmetros query string na requisição GET
+        const response = await axios.get(`${API_URL}documento/download`, {
+            params: { bucket, key }
+        });
+        return response.data.downloadUrl;
+    } catch (err) {
+        console.error("Erro ao obter link de download", err);
         throw err;
     }
 };

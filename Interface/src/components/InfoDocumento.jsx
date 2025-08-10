@@ -1,34 +1,33 @@
-// Componente que exibe as informações do documento analisado
+// Exibe dados do documento analisado
 const InfoDocumento = ({ info }) => {
-  // Se não houver informação ou não tiver categoria (resposta inválida), não renderiza nada
+  // Não renderiza se info inválida ou sem categoria
   if (!info || !info.categoria) {
     return null;
   }
 
-  // Desestrutura os dados principais
-  const { categoria, metadados } = info;
+  const { categoria, metadados } = info; // Extrai dados principais
 
   return (
     <div className="w-full max-w-3xl mt-6 p-6 bg-gray-800 border border-gray-700 rounded-2xl shadow-lg animate-fadeIn">
-      {/* Título principal */}
+      {/* Título */}
       <h2 className="text-3xl font-bold text-white mb-2">Análise do Documento</h2>
 
-      {/* Bloco da categoria do documento */}
+      {/* Categoria */}
       <div className="mb-6">
         <h3 className="text-xl font-semibold text-indigo-400 mb-2">Categoria</h3>
         <p className="text-lg text-gray-200 bg-gray-700 px-4 py-2 rounded-lg">{categoria}</p>
       </div>
 
-      {/* Bloco dos metadados extraídos */}
+      {/* Metadados extraídos */}
       <div>
         <h3 className="text-xl font-semibold text-indigo-400 mb-3">Metadados Extraídos</h3>
         <div className="space-y-3 text-gray-300">
-          {/* Exibe apenas se cada campo estiver presente */}
+          {/* Campos só se presentes */}
           {metadados.titulo && <p><strong>Título:</strong> {metadados.titulo}</p>}
           {metadados.autor && <p><strong>Autor:</strong> {metadados.autor}</p>}
           {metadados.data && <p><strong>Data:</strong> {metadados.data}</p>}
 
-          {/* Lista de palavras-chave como "tags" */}
+          {/* Palavras-chave como tags */}
           {metadados.palavrasChave && metadados.palavrasChave.length > 0 && (
             <div>
               <strong>Palavras-Chave:</strong>
@@ -45,7 +44,7 @@ const InfoDocumento = ({ info }) => {
             </div>
           )}
 
-          {/* Exibe o resumo, se presente */}
+          {/* Resumo, se houver */}
           {metadados.resumo && <p className="mt-2"><strong>Resumo:</strong> {metadados.resumo}</p>}
         </div>
       </div>

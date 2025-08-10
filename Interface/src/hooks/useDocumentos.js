@@ -1,53 +1,50 @@
 import { useState } from 'react';
 import { apiCategorizarComArquivo } from '../services/api';
 
-// Hook personalizado para lidar com o envio e análise de documentos PDF
 export function useDocumentos() {
-  // Armazena as informações retornadas pela API após a análise
-  const [documentoInfo, setDocumentoInfo] = useState(null);
-  
-  // Indica se a requisição está em andamento
+  // Armazena múltiplos resultados da análise
+  const [documentosInfo, setDocumentosInfo] = useState([]);
   const [carregando, setCarregando] = useState(false);
-
-  // Armazena mensagens de erro (ex: arquivo inválido, erro de rede, etc.)
   const [erro, setErro] = useState(null);
+  // Estado para mostrar progresso da análise
+  const [progresso, setProgresso] = useState('');
 
-  // Função que envia o PDF + prompt para a API e atualiza os estados com a resposta
-  const analisarDocumento = async (promptUsuario, arquivo) => {
-    // Validação básica: impede envio sem arquivo
-    if (!arquivo) {
-      setErro("É obrigatório enviar um arquivo para análise.");
+  // Função para analisar vários arquivos sequencialmente
+  const analisarDocumento = async (promptUsuario, arquivos) => {
+    if (!arquivos || arquivos.length === 0) {
+      setErro("É obrigatório enviar pelo menos um arquivo para análise.");
       return;
     }
 
-    // Limpa os estados antes de iniciar nova requisição
     setCarregando(true);
     setErro(null);
-    setDocumentoInfo(null);
+    setDocumentosInfo([]); // Limpa resultados antigos
+    setProgresso('');
 
     try {
-      // Chama a API que envia o PDF e o prompt para a IA (via backend)
-      const respostaApi = await apiCategorizarComArquivo(promptUsuario, arquivo);
-
-      // Armazena o resultado retornado pela IA
-      setDocumentoInfo(respostaApi);
-
+      // Loop para enviar cada arquivo individualmente
+      for (let i = 0; i < arquivos.length; i++) {
+        const arquivo = arquivos[i];
+        setProgresso(`Analisando ${i + 1} de ${arquivos.length}: "${arquivo.name}"`);
+        
+        const respostaApi = await apiCategorizarComArquivo(promptUsuario, arquivo);
+        
+        // Anexa o nome do arquivo ao resultado para identificação
+        const resultadoComNome = { ...respostaApi, nomeArquivo: arquivo.name };
+        
+        // Atualiza o estado com o novo resultado sem perder os anteriores
+        setDocumentosInfo(prevInfo => [...prevInfo, resultadoComNome]);
+      }
     } catch (error) {
-      console.error("Erro ao analisar o documento", error);
-
-      // Tenta extrair a mensagem de erro da resposta da API, se existir
-      const msgErro = error.response?.data?.erro
-        || "Não foi possível analisar o documento. Verifique o arquivo ou a conexão e tente novamente.";
-
-      // Atualiza o estado de erro
+      console.error("Erro ao analisar os documentos", error);
+      const msgErro = error.response?.data?.erro || "Não foi possível analisar um dos documentos. Verifique o arquivo ou a conexão e tente novamente.";
       setErro(msgErro);
-      setDocumentoInfo(null);
     } finally {
-      // Finaliza o carregamento, independente do sucesso ou falha
       setCarregando(false);
+      setProgresso(''); // Reseta mensagem de progresso
     }
   };
 
-  // Expõe os estados e a função para o componente que usar esse hook
-  return { documentoInfo, carregando, erro, analisarDocumento };
+  // Retorna estados e função para o componente consumir
+  return { documentosInfo, carregando, erro, progresso, analisarDocumento };
 }

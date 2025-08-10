@@ -1,99 +1,78 @@
-import { v4 as uuidv4 } from 'uuid';
-import { uploadParaS3 } from '../services/s3Service.js';
-import { registrarMetadados, atualizarMetadados } from '../services/dynamoDbService.js';
-import { invocarBedrock } from "../services/bedrockService.js";
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import { v4 as uuidv4 } from 'uuid'; // Gera IDs únicos para cada documento
+import { uploadParaS3, gerarUrlDownload } from '../services/s3Service.js'; // Funções para enviar arquivos ao S3 e gerar link de download
+import { registrarMetadados, atualizarMetadados, buscarDocumentos } from '../services/dynamoDbService.js'; // Operações no DynamoDB
+import { invocarBedrock } from "../services/bedrockService.js"; // Chama IA do Bedrock
+import { extrairTextoComTextract } from '../services/textractService.js'; // Extrai texto do PDF com Amazon Textract
 
-
-async function extrairTextoDoPdf(dataBuffer) {
-    // Converte o buffer do multer (req.file.buffer) para Uint8Array, que é o formato esperado pela lib
-    const uint8Array = new Uint8Array(dataBuffer);
-
-    // Abre o documento PDF a partir do buffer
-    const doc = await pdfjsLib.getDocument(uint8Array).promise;
-
-    let textoCompleto = '';
-
-    // Percorre todas as páginas do PDF
-    for (let i = 1; i <= doc.numPages; i++) {
-        const pagina = await doc.getPage(i); // Obtém a página atual
-        const conteudo = await pagina.getTextContent(); // Extrai o conteúdo da página
-
-        // Concatena o texto de cada item da página, separando por espaços
-        textoCompleto += conteudo.items.map(item => item.str).join(' ');
-    }
-
-    // Retorna o texto completo extraído do PDF
-    return textoCompleto;
-}
-
+// Controller para receber, processar e categorizar documento
 export const categorizarComArquivo = async (req, res) => {
+    const doc_uuid = uuidv4(); // ID único para rastrear o documento
     try {
-        
-        if (!req.file) {
+        if (!req.file) { // Valida se um arquivo foi enviado
             return res.status(400).json({ erro: 'Nenhum arquivo enviado.' });
         }
-        const doc_uuid = uuidv4();
-        
+
         console.log(`[${doc_uuid}] Iniciando upload para o S3...`);
-        const { s3Key, bucketName } = await uploadParaS3(req.file.buffer, req.file.originalname);
-        
+        const { s3Key, bucketName } = await uploadParaS3(req.file.buffer, req.file.originalname); // Faz upload para o S3
+
         console.log(`[${doc_uuid}] Registrando metadados iniciais no DynamoDB...`);
-        const metadadosIniciais = {
-            doc_uuid,
-            s3Key,
-            bucketName,
+        const metadadosIniciais = { // Dados básicos do arquivo
+            doc_uuid, s3Key, bucketName,
             fileName: req.file.originalname,
             fileSize: req.file.size,
             contentType: req.file.mimetype,
-            userId: "user-placeholder-id",
+            userId: "user-placeholder-id", 
             uploadedTimeStamp: new Date().toISOString(),
             status: "UPLOADED"
         };
-        await registrarMetadados(metadadosIniciais);
-   
-        console.log(`[${doc_uuid}] Extraindo texto do PDF...`);
-        const textoDoPdf = await extrairTextoDoPdf(req.file.buffer);
+        await registrarMetadados(metadadosIniciais); // Salva metadados no DynamoDB
 
-        const { promptUsuario } = req.body;
+        console.log(`[${doc_uuid}] Extraindo texto do documento com Amazon Textract...`);
+        const textoDoPdf = await extrairTextoComTextract(bucketName, s3Key); // Extrai o texto do arquivo
 
+        const { promptUsuario } = req.body; // Entrada extra do usuário para IA
+
+        // Prompt detalhado para a IA classificar e extrair informações
         const promptFinal = `
-Você é um modelo de linguagem especializado em análise documental.
-Analise o seguinte conteúdo extraído de um documento PDF e realize as seguintes tarefas:
-1. Classifique o documento em uma categoria geral (por exemplo: Contrato, Fatura, Proposta, Relatório, Certificado, etc.).
-2. Extraia os principais metadados que puder identificar no texto.
-3. Se algum dado não estiver presente no texto, utilize o valor null.
----
-Texto extraído do documento:
-"""
-${textoDoPdf}
-"""
-Instrução adicional do usuário (opcional):
-"${promptUsuario || "Nenhuma"}"
-Responda SOMENTE no formato JSON com a seguinte estrutura exata:
-{
-  "categoria": "ex: Contrato",
-  "metadados": {
-    "titulo": "Título identificado no texto, ou null",
-    "autor": "Nome do autor, se presente, ou null",
-    "data": "Data principal do documento, ou null",
-    "palavrasChave": ["palavra1", "palavra2", ...],
-    "resumo": "Um resumo objetivo com até 3 frases do conteúdo"
-  }
-}
+Você é um modelo de linguagem especializado em análise documental...
+...
 `;
-   // Envia o prompt para o modelo da AWS Bedrock e aguarda a resposta
-        const respostaJson = await invocarBedrock(promptFinal);
+
+        const respostaJson = await invocarBedrock(promptFinal); // IA retorna a categorização e metadados
 
         console.log(`[${doc_uuid}] Atualizando status para PROCESSED no DynamoDB...`);
-        await atualizarMetadados(doc_uuid, "PROCESSED", respostaJson);
+        await atualizarMetadados(doc_uuid, "PROCESSED", respostaJson); // Atualiza status no banco
 
-        // Retorna o JSON gerado pela IA como resposta da API
-        res.json(respostaJson);
-
+        res.json(respostaJson); // Retorna resposta para o cliente
     } catch (error) {
-        // Em caso de erro, mostra no console e retorna erro 500 ao cliente
-        console.error("Erro no controller:", error);
+        console.error(`Erro no controller para o doc_uuid: ${doc_uuid}`, error);
         res.status(500).json({ erro: 'Erro ao processar o arquivo com a IA.' });
+    }
+};
+
+// Controller para buscar documentos no DynamoDB
+export const buscarDocumentosController = async (req, res) => {
+    try {
+        const { termo } = req.query; // Parâmetro de busca opcional
+        const resultados = await buscarDocumentos(termo); // Busca no banco
+        res.json(resultados); // Retorna lista encontrada
+    } catch (error) {
+        console.error(`Erro no controller de busca:`, error);
+        res.status(500).json({ erro: 'Erro ao buscar os documentos.' });
+    }
+};
+
+// Controller para gerar link de download de documento no S3
+export const downloadDocumentoController = async (req, res) => {
+    try {
+        const { bucket, key } = req.query; // Nome do bucket e chave do arquivo
+        if (!bucket || !key) { // Valida parâmetros
+            return res.status(400).json({ erro: 'Parâmetros inválidos para o download.' });
+        }
+        const downloadUrl = await gerarUrlDownload(bucket, key); // Gera URL temporária
+        res.json({ downloadUrl }); // Retorna para o cliente
+    } catch (error) {
+        console.error(`Erro no controller de download:`, error);
+        res.status(500).json({ erro: 'Erro ao gerar o link de download.' });
     }
 };

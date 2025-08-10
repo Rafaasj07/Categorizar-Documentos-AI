@@ -1,6 +1,6 @@
 # Categorizar Documentos AI (Em Desenvolvimento)
 
-Este projeto utiliza Inteligência Artificial para analisar, categorizar e extrair metadados de documentos PDF. O usuário pode fazer o upload de um arquivo, e a aplicação retorna uma análise estruturada.
+Este projeto utiliza a Inteligência Artificial generativa da AWS (Amazon Bedrock com o modelo Claude 3 Haiku) para analisar, categorizar e extrair metadados de múltiplos documentos PDF de forma automatizada.
 
 ## Link da Aplicação
 
@@ -8,108 +8,85 @@ A aplicação está disponível para teste no seguinte endereço:
 
 **[https://categorizar-documentos-ai-1.onrender.com/](https://categorizar-documentos-ai-1.onrender.com/)**
 
-## Tecnologias Principais
+## Funcionalidades Principais
 
-  * **Frontend:**
+-   **Upload em Lote:** Envie até 10 arquivos PDF de uma vez, com um limite de 5MB por arquivo.
+-   **Análise com IA:** Cada documento é processado para extrair automaticamente:
+    -   Uma **categoria** (ex: Contrato, Relatório, Fatura).
+    -   **Metadados** como título, autor, data, palavras-chave e um resumo.
+-   **Busca e Filtro:** Uma página de busca permite visualizar todos os documentos processados, com a possibilidade de filtrar os resultados por nome, categoria ou conteúdo do resumo.
+-   **Download Seguro:** Baixe qualquer documento diretamente da interface. Os links são gerados de forma segura e temporária.
+-   **Interface Responsiva:** O layout se adapta para uma experiência de uso agradável tanto em desktops quanto em dispositivos móveis.
 
-      * **React:** Biblioteca para a construção da interface.
-      * **Vite:** Ferramenta de build para um desenvolvimento rápido.
-      * **Tailwind CSS:** Framework para estilização ágil.
-      * **Axios:** Cliente HTTP para a comunicação com a API.
+## Arquitetura e Tecnologias
 
-  * **Backend:**
+O projeto é um monorepo dividido em duas partes principais: `Interface` (frontend) e `API` (backend).
 
-      * **Node.js & Express:** Ambiente e framework para criar a API.
-      * **Multer:** Middleware para lidar com o upload dos arquivos PDF.
-      * **pdfjs-dist:** Biblioteca para extrair o texto dos documentos PDF no servidor.
-      * **AWS SDK:** Para integração com os serviços da Amazon Web Services.
+#### Frontend (`Interface`)
 
-## Inteligência Artificial: AWS Bedrock + Claude 3.5 Haiku
+-   **React (Vite):** Biblioteca para a construção da interface de usuário com um ambiente de desenvolvimento rápido.
+-   **Tailwind CSS:** Framework de estilização para um design ágil e responsivo.
+-   **Axios:** Cliente HTTP para a comunicação segura com o backend.
 
-O núcleo da funcionalidade de análise é o **Amazon Bedrock**, o serviço de IA generativa da AWS.
+#### Backend (`API`)
 
-  * **Como funciona:** O texto extraído do PDF é enviado para o Bedrock, que por sua vez utiliza o modelo **Claude 3 Haiku** (`anthropic.claude-3-haiku-20240307-v1:0`) para realizar a análise.
-  * **Prompt:** Um prompt estruturado é enviado ao modelo, instruindo-o a categorizar o documento e a extrair metadados específicos como título, data e palavras-chave, retornando a resposta em formato JSON.
-  * **Resultado:** A API recebe o JSON do Bedrock e o envia para o frontend, que exibe as informações de forma organizada para o usuário.
+-   **Node.js & Express:** Ambiente e framework para a construção da API REST.
+-   **Multer:** Middleware para gerenciar o upload dos arquivos.
+-   **AWS SDK v3:** Para integração com os serviços da Amazon Web Services.
+    -   **Amazon S3:** Armazenamento seguro dos arquivos PDF originais.
+    -   **Amazon Textract:** Extração do texto bruto dos documentos PDF.
+    -   **Amazon Bedrock (Claude 3 Haiku):** Análise do texto extraído para categorização e extração de metadados.
+    -   **Amazon DynamoDB:** Banco de dados NoSQL para armazenar os metadados e a localização dos arquivos no S3.
 
 ## Como Rodar Localmente
 
-Para executar o projeto em sua máquina local, você precisará configurar e iniciar o backend (API) e o frontend (Interface) separadamente.
-
 ### Pré-requisitos
 
-  * **Node.js:** Certifique-se de que você tem o Node.js instalado (versão 18 ou superior).
-  * **NPM ou Yarn:** Gerenciador de pacotes do Node.js.
-  * **Credenciais da AWS:** Você precisará de um `Access Key ID` e uma `Secret Access Key` de um usuário da AWS com permissões para acessar o Amazon Bedrock.
+-   **Node.js:** Versão 18 ou superior.
+-   **NPM ou Yarn.**
+-   **Credenciais da AWS:** Um usuário IAM com permissões programáticas para S3, Textract, Bedrock e DynamoDB.
 
------
+---
 
-### 1\. Configurando e Rodando o Backend (API)
+### 1. Configurando e Rodando o Backend (API)
 
 1.  **Navegue até a pasta da API:**
-
     ```bash
-    cd "CategorizarDocs - Copia/API"
+    cd API
     ```
-
 2.  **Instale as dependências:**
-
     ```bash
     npm install
     ```
+3.  **Crie o arquivo de ambiente:**
+    Crie um arquivo chamado `.env` na raiz da pasta `API` e preencha com suas credenciais e nomes de recursos da AWS. Use o arquivo `.env.example` como guia.
 
-3.  **Crie o arquivo de ambiente `.env`:**
-    Dentro da pasta `API`, crie um arquivo chamado `.env` e adicione o seguinte conteúdo, substituindo pelas suas credenciais da AWS:
-
-    ```env
-    # Suas credenciais da AWS
-    AWS_ACCESS_KEY_ID=SUA_ACCESS_KEY_ID_AQUI
-    AWS_SECRET_ACCESS_KEY=SUA_SECRET_ACCESS_KEY_AQUI
-    AWS_REGION=us-east-1
-
-    # Endereço do frontend para permitir a comunicação (CORS)
-    CORS_ORIGIN=http://localhost:5173
-    ```
-
-4.  **Inicie o servidor da API:**
-
+4.  **Inicie o servidor:**
     ```bash
     npm run dev
     ```
+    O servidor estará rodando em `http://localhost:3001`.
 
-    O terminal deverá exibir `Servidor rodando na porta 3001`. Deixe este terminal aberto.
+---
 
------
-
-### 2\. Configurando e Rodando o Frontend (Interface)
+### 2. Configurando e Rodando o Frontend (Interface)
 
 1.  **Abra um novo terminal.**
-
 2.  **Navegue até a pasta da Interface:**
-
     ```bash
-    cd "CategorizarDocs - Copia/Interface"
+    cd Interface
     ```
-
 3.  **Instale as dependências:**
-
     ```bash
     npm install
     ```
-
-4.  **Verifique o arquivo de ambiente `.env`:**
-    Garanta que o arquivo `Interface/.env` contenha a URL da sua API local:
-
+4.  **Crie o arquivo de ambiente:**
+    Crie um arquivo chamado `.env` na raiz da pasta `Interface` e aponte para a URL da sua API local.
     ```env
     VITE_API_URL=http://localhost:3001/api/
     ```
-
-5.  **Inicie a aplicação React:**
-
+5.  **Inicie a aplicação:**
     ```bash
     npm run dev
     ```
-
-### 3\. Acessando a Aplicação
-
-Abra seu navegador e acesse a URL fornecida pelo Vite (`http://localhost:5173`). Agora você pode utilizar a aplicação localmente.
+    A aplicação estará acessível em `http://localhost:5173` (ou outra porta indicada pelo Vite).

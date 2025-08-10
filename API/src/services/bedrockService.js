@@ -1,23 +1,21 @@
-// Importa o cliente e comando para chamar modelos do Amazon Bedrock via AWS SDK (um conjunto de ferramentas que ajuda programadores a 
-// usar uma tecnologia específica de forma mais fácil e organizada)
 import {
     BedrockRuntimeClient,
     InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime";
-
+} from "@aws-sdk/client-bedrock-runtime"; // SDK AWS para usar Bedrock
 import dotenv from 'dotenv';
-dotenv.config(); // Carrega variáveis do arquivo .env (credenciais, região)
 
-// Configura o cliente Bedrock com região e credenciais AWS
-const client = new BedrockRuntimeClient({});
+dotenv.config(); // Carrega variáveis do .env
 
-// Define qual modelo será usado (Claude 3 Haiku, versão de março/2024)
+// Cria cliente Bedrock usando região definida no .env
+const client = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
+
+// ID do modelo Claude no Bedrock
 const modelId = "anthropic.claude-3-haiku-20240307-v1:0";
 
-// Função para enviar prompt ao modelo e receber resposta JSON
+// Função para enviar prompt ao Bedrock e retornar resposta
 export async function invocarBedrock(prompt) {
     try {
-        // Monta o corpo da requisição conforme esperado pelo modelo Anthropic
+        // Monta payload da requisição
         const payload = {
             anthropic_version: "bedrock-2023-05-31",
             max_tokens: 2048,
@@ -34,7 +32,7 @@ export async function invocarBedrock(prompt) {
             ],
         };
 
-        // Cria o comando para enviar ao Bedrock via SDK
+        // Cria comando para invocar o modelo
         const command = new InvokeModelCommand({
             body: JSON.stringify(payload),
             contentType: "application/json",
@@ -42,19 +40,15 @@ export async function invocarBedrock(prompt) {
             modelId,
         });
 
-        // Envia a requisição para a AWS Bedrock e aguarda resposta
+        // Envia requisição para Bedrock
         const apiResponse = await client.send(command);
 
-        // Decodifica a resposta recebida (vem como um stream binário)
+        // Decodifica e interpreta a resposta
         const decodedBody = new TextDecoder().decode(apiResponse.body);
-
-        // Converte a resposta JSON em objeto JavaScript
         const responseBody = JSON.parse(decodedBody);
-
-        // Extrai o texto da resposta do modelo
         const textoResposta = responseBody.content[0].text;
 
-        // Retorna o texto convertido para JSON (se for JSON válido)
+        // Retorna a resposta já convertida para objeto JSON
         return JSON.parse(textoResposta);
 
     } catch (error) {
