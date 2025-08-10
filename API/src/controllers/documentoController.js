@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'; // Gera IDs únicos para cada documento
-import { uploadParaS3, gerarUrlDownload, apagarDoS3 } from '../services/s3Service.js'; // Funções para S3: upload, gerar link de download e apagar
-import { registrarMetadados, atualizarMetadados, buscarDocumentos, apagarMetadados } from '../services/dynamoDbService.js'; // Operações no DynamoDB
+import { uploadParaS3, gerarUrlDownload } from '../services/s3Service.js'; // Funções para S3: upload, gerar link de download e apagar
+import { registrarMetadados, atualizarMetadados, buscarDocumentos } from '../services/dynamoDbService.js'; // Operações no DynamoDB
 import { invocarBedrock } from "../services/bedrockService.js"; // Chama a IA do Bedrock
 import { extrairTextoComTextract } from '../services/textractService.js'; // Extrai texto do PDF com Amazon Textract
 
