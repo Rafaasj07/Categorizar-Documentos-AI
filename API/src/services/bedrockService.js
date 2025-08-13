@@ -3,56 +3,48 @@ import {
     InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime"; // SDK AWS para usar Bedrock
 import dotenv from 'dotenv';
+import { extrairJson } from '../utils/jsonValidator.js'; // Função para validar e extrair JSON
 
-dotenv.config(); // Carrega variáveis do .env
+dotenv.config(); // Carrega variáveis do arquivo .env
 
-// Cria cliente Bedrock usando região definida no .env
-const client = new BedrockRuntimeClient({ region: process.env.AWS_REGION });
+const client = new BedrockRuntimeClient({ region: process.env.AWS_REGION }); // Inicializa cliente Bedrock
+const modelId = "anthropic.claude-3-haiku-20240307-v1:0"; // ID do modelo a ser usado
 
-// ID do modelo Claude no Bedrock
-const modelId = "anthropic.claude-3-haiku-20240307-v1:0";
-
-// Função para enviar prompt ao Bedrock e retornar resposta
+// Função para enviar prompt ao Bedrock e retornar a resposta processada
 export async function invocarBedrock(prompt) {
     try {
-        // Monta payload da requisição
+        // Monta payload com o prompt do usuário
         const payload = {
             anthropic_version: "bedrock-2023-05-31",
-            max_tokens: 2048,
-            messages: [
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "text",
-                            text: prompt,
-                        },
-                    ],
-                },
-            ],
+            max_tokens: 2048, // Limite de tokens
+            messages: [{
+                role: "user",
+                content: [{
+                    type: "text",
+                    text: prompt, // Texto enviado ao modelo
+                }],
+            }],
         };
 
-        // Cria comando para invocar o modelo
+        // Cria comando para invocar o modelo Bedrock
         const command = new InvokeModelCommand({
-            body: JSON.stringify(payload),
+            body: JSON.stringify(payload), // Converte payload para JSON
             contentType: "application/json",
             accept: "application/json",
             modelId,
         });
 
-        // Envia requisição para Bedrock
-        const apiResponse = await client.send(command);
+        const apiResponse = await client.send(command); // Envia comando para Bedrock
+        const decodedBody = new TextDecoder().decode(apiResponse.body); // Decodifica resposta em texto
+        const responseBody = JSON.parse(decodedBody); // Converte texto para objeto
+        const textoResposta = responseBody.content[0].text; // Pega texto da resposta
 
-        // Decodifica e interpreta a resposta
-        const decodedBody = new TextDecoder().decode(apiResponse.body);
-        const responseBody = JSON.parse(decodedBody);
-        const textoResposta = responseBody.content[0].text;
-
-        // Retorna a resposta já convertida para objeto JSON
-        return JSON.parse(textoResposta);
+        // Extrai JSON da resposta usando função utilitária
+        return extrairJson(textoResposta);
 
     } catch (error) {
-        console.error("Erro ao invocar o Bedrock:", error);
-        throw new Error("Não foi possível obter uma resposta do serviço de IA.");
+        // Captura erro de envio ou de parsing de JSON
+        console.error("Erro no serviço Bedrock:", error.message);
+        throw new Error("Não foi possível obter e processar uma resposta válida do serviço de IA.");
     }
 }

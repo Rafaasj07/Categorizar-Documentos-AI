@@ -32,15 +32,15 @@ export const apiCategorizarComArquivo = async (promptUsuario, arquivo) => {
 };
 
 /**
- * Busca documentos na API, filtrando pelo termo informado.
- * @param {string} termo - Texto para filtro na busca (nome, categoria, resumo).
- * @returns {Promise<Array>} - Array com os documentos encontrados.
+ * Busca documentos na API com filtros, ordenação e paginação.
+ * @param {object} params - Objeto com os parâmetros de busca.
+ * @returns {Promise<Object>} - Objeto com a lista de documentos e o token da próxima página.
  */
-export const apiBuscarDocumentos = async (termo) => {
+export const apiBuscarDocumentos = async (params = {}) => {
     try {
-        const response = await axios.get(`${API_URL}documento/buscar`, {
-            params: { termo } // Passa o termo como query parameter
-        });
+        // LÓGICA REVERTIDA: A conversão do array de categorias foi removida.
+        // Os parâmetros são enviados diretamente como estão.
+        const response = await axios.get(`${API_URL}documento/buscar`, { params });
         return response.data;
     } catch (err) {
         console.error("Erro ao buscar documentos", err);
@@ -63,6 +63,36 @@ export const apiDownloadDocumento = async (bucket, key) => {
         return response.data.downloadUrl;
     } catch (err) {
         console.error("Erro ao obter link de download", err);
+        throw err;
+    }
+};
+
+/**
+ * Envia uma requisição para apagar uma lista de documentos.
+ * @param {Array<object>} documentos - Um array de objetos de documento a serem apagados.
+ */
+export const apiApagarDocumento = async (documentos) => {
+    try {
+        const response = await axios.delete(`${API_URL}documento/apagar`, {
+            data: { documentos } // Envia o array dentro de um objeto
+        });
+        return response.data;
+    } catch (err) {
+        console.error("Erro ao apagar documentos", err);
+        throw err;
+    }
+};
+
+/**
+ * Busca a lista de categorias únicas de documentos.
+ * @returns {Promise<Array>} - Array com as categorias encontradas.
+ */
+export const apiListarCategorias = async () => {
+    try {
+        const response = await axios.get(`${API_URL}documento/categorias`);
+        return response.data;
+    } catch (err) {
+        console.error("Erro ao buscar categorias", err);
         throw err;
     }
 };

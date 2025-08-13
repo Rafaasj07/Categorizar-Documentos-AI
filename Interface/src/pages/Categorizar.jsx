@@ -10,30 +10,30 @@ function Categorizar() {
 
   return (
     <div className="flex flex-col items-center min-h-screen bg-black p-4 pt-24 md:pt-32 pb-24 md:pb-4">
-      {/* Navegação com controle de estado carregando para desabilitar botões */}
+      {/* Navegação superior e inferior, passando estado de carregamento */}
       <NavPadrao carregando={carregando} />
       <NavInferior carregando={carregando} />
 
-      <div className="w-full max-w-3xl">
+      <div className="w-full max-w-3xl pt-6 md:pt-0">
         {/* Título da página */}
-        <h1 className="text-4xl md:text-5xl font-bold text-center mb-6 text-white shadow-lg">
+        <h1 className="text-4xl md:text-5xl font-bold text-center mb-4 text-white shadow-lg">
           Classificação de Documentos PDF
         </h1>
 
-        {/* Exibe erro caso exista */}
+        {/* Exibe mensagem de erro caso exista */}
         {erro && (
           <div className="w-full max-w-3xl mt-4 p-4 bg-red-900 border border-red-700 text-red-200 rounded-lg text-center">
             <p><strong>Ops, algo deu errado:</strong> {erro}</p>
           </div>
         )}
 
-        {/* Formulário para upload e envio dos documentos */}
+        {/* Formulário para upload/análise de documentos */}
         <FormularioDocumento
           aoAnalisar={analisarDocumento} // Callback para iniciar análise
           carregando={carregando} // Desabilita formulário se estiver carregando
         />
 
-        {/* Mensagem de progresso durante a análise */}
+        {/* Mensagem de progresso durante análise */}
         {carregando && progresso && (
           <div className="w-full max-w-3xl my-4 p-3 bg-blue-900/50 border border-blue-700 text-blue-200 rounded-lg text-center">
             <p className="flex items-center justify-center gap-2">
@@ -42,7 +42,7 @@ function Categorizar() {
           </div>
         )}
 
-        {/* Exibe os resultados da análise, se existirem */}
+        {/* Exibe resultados da análise, se existirem */}
         {documentosInfo.length > 0 && (
           <div className="space-y-6 mt-8">
             <h2 className="text-3xl font-bold text-center text-white">Resultados da Análise</h2>
@@ -51,7 +51,7 @@ function Categorizar() {
                 <h3 className="text-xl font-semibold text-gray-300 mb-2 border-b border-gray-700 pb-1">
                   Arquivo: {info.nomeArquivo}
                 </h3>
-                {/* Componente que exibe detalhes da análise */}
+                {/* Componente que mostra detalhes do documento */}
                 <InfoDocumento info={info} />
               </div>
             ))}

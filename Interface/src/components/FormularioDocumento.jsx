@@ -53,11 +53,11 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
   // Envia os dados para análise
   const aoSubmeter = (evento) => {
     evento.preventDefault();
-    aoAnalisar(promptUsuario, arquivos);
+    aoAnalisar(promptUsuario, arquivos); // Chama função de análise do pai
   };
 
   return (
-    <div className="w-full max-w-3xl p-4 rounded-lg mb-8">
+    <div className="w-full max-w-3xl px-4 rounded-lg mb-8">
       <form onSubmit={aoSubmeter}>
         <div className="mb-6">
           <label htmlFor="arquivo" className="block text-gray-300 text-lg font-semibold mb-2">
@@ -67,7 +67,7 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
             type="file"
             id="arquivo"
             accept=".pdf"
-            onChange={aoMudarArquivo}
+            onChange={aoMudarArquivo} // Manipula seleção de arquivos
             disabled={carregando}
             multiple // Permite múltiplos arquivos
             className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600 cursor-pointer"
@@ -95,7 +95,7 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
             type="text"
             id="promptUsuario"
             value={promptUsuario}
-            onChange={(e) => setPromptUsuario(e.target.value)}
+            onChange={(e) => setPromptUsuario(e.target.value)} // Atualiza estado
             className="shadow-inner appearance-none border border-gray-700 rounded-lg w-full py-3 px-4 bg-gray-800 text-gray-200 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-gray-500"
             placeholder="Ex: Foque nos aspectos financeiros dos documentos."
           />
@@ -107,7 +107,7 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
             disabled={carregando || arquivos.length === 0 || !!arquivoErro} // Bloqueia se carregando, sem arquivos ou erro
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 text-lg rounded-lg focus:outline-none focus:shadow-outline disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105"
           >
-            {carregando ? 'Analisando...' : `Analisar ${arquivos.length} Documento(s)`}
+            {carregando ? 'Analisando...' : `Analisar ${arquivos.length} Documento(s)`} 
           </button>
         </div>
       </form>

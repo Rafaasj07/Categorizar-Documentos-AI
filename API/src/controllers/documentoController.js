@@ -1,26 +1,31 @@
-import { v4 as uuidv4 } from 'uuid'; // Gera IDs únicos para cada documento
-import { uploadParaS3, gerarUrlDownload } from '../services/s3Service.js'; // Funções para S3: upload, gerar link de download e apagar
-import { registrarMetadados, atualizarMetadados, buscarDocumentos } from '../services/dynamoDbService.js'; // Operações no DynamoDB
-import { invocarBedrock } from "../services/bedrockService.js"; // Chama a IA do Bedrock
-import { extrairTextoComTextract } from '../services/textractService.js'; // Extrai texto do PDF com Amazon Textract
+import { v4 as uuidv4 } from 'uuid'; // Gera IDs únicos
+import { uploadParaS3, gerarUrlDownload, apagarDoS3 } from '../services/s3Service.js'; // Funções para S3
+import { registrarMetadados, atualizarMetadados, buscarDocumentos, apagarMetadados, listarCategoriasUnicas } from '../services/dynamoDbService.js'; // Funções para DynamoDB
+import { invocarBedrock } from "../services/bedrockService.js"; // Chama IA Bedrock
+import { extrairTextoComTextract } from '../services/textractService.js'; // Extrai texto do PDF
 
-/**
- * Controller principal: Orquestra todo o processo de análise de um documento.
- * Recebe o arquivo, salva no S3, extrai o texto com Textract, analisa com Bedrock
- * e guarda os resultados no DynamoDB.
- */
+// Padroniza a categoria para Title Case e remove lixo
+const padronizarCategoria = (categoria) => {
+    if (!categoria || typeof categoria !== 'string') {
+        return "Indefinida"; // Valor padrão se inválida
+    }
+    const partePrincipal = categoria.split('/')[0].trim(); // Pega texto antes da barra
+    // Converte cada palavra para "PrimeiraMaiúscula"
+    return partePrincipal.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+};
+
+// Controller principal: categoriza documento com IA
 export const categorizarComArquivo = async (req, res) => {
-    const doc_uuid = uuidv4(); // Cria um ID único para rastrear todo o processo.
+    const doc_uuid = uuidv4(); // ID único do documento
     try {
-        // 1. Valida se um arquivo foi realmente enviado na requisição.
-        if (!req.file) {
+        if (!req.file) { // Verifica se enviaram arquivo
             return res.status(400).json({ erro: 'Nenhum arquivo enviado.' });
         }
 
-        // 2. Envia o arquivo PDF para o armazenamento no Amazon S3.
+        // Upload do PDF para S3
         const { s3Key, bucketName } = await uploadParaS3(req.file.buffer, req.file.originalname);
 
-        // 3. Salva um registro inicial no DynamoDB com os metadados básicos do arquivo.
+        // Salva metadados iniciais no DynamoDB
         const metadadosIniciais = {
             doc_uuid, s3Key, bucketName,
             fileName: req.file.originalname,
@@ -32,19 +37,26 @@ export const categorizarComArquivo = async (req, res) => {
         };
         await registrarMetadados(metadadosIniciais);
 
-        // 4. Usa o Amazon Textract para extrair todo o conteúdo de texto do PDF que está no S3.
+        // Extrai texto do PDF usando Textract
         const textoDoPdf = await extrairTextoComTextract(bucketName, s3Key);
 
-        // 5. Pega a instrução adicional (opcional) enviada pelo usuário no formulário.
+        // Busca categorias já existentes para sugerir à IA
+        const categoriasExistentes = await listarCategoriasUnicas();
+        const instrucaoCategorias = categoriasExistentes.length > 0
+            ? `Considere reutilizar uma das seguintes categorias existentes se for apropriado: [${categoriasExistentes.join(', ')}].`
+            : "Como não há categorias preexistentes, crie uma nova categoria apropriada.";
+
+        // Instrução extra do usuário (opcional)
         const { promptUsuario } = req.body;
 
-        // 6. Prompt final e mais robusto ajustado pela Flávia.
+        // Monta prompt final para Bedrock
         const promptFinal = `
 Você é um modelo de linguagem especializado em análise documental avançada.
-Analise cuidadosamente o seguinte conteúdo extraído de um documento PDF e execute as tarefas abaixo com precisão:
-1. Classifique o documento em uma categoria geral apropriada (por exemplo: Contrato, Fatura, Proposta, Relatório, Certificado, etc.), justificando a escolha com base no conteúdo.
-2. Extraia os principais metadados identificáveis no texto, considerando elementos contextuais e estruturais do documento.
-3. Para dados não presentes no texto, atribua o valor null explicitamente.
+Analise o seguinte texto extraído de um documento PDF e execute as tarefas abaixo com precisão:
+
+1.  **Classificação**: Atribua ao documento uma única e concisa categoria. ${instrucaoCategorias} Se precisar criar uma nova, use o formato Title Case (Ex: "Contrato de Aluguel", "Fatura de Energia", "Prova de Legislação"). Evite o uso de barras "/".
+2.  **Extração de Metadados**: Extraia os principais metadados do texto. Para campos não encontrados, use o valor \`null\`.
+
 ---
 Texto extraído do documento:
 """
@@ -52,68 +64,122 @@ ${textoDoPdf}
 """
 Instrução adicional do usuário: "${promptUsuario || "Nenhuma"}"
 
-Responda EXCLUSIVAMENTE no formato JSON com a estrutura exata abaixo, mantendo a consistência dos tipos de dados:
+Responda EXCLUSIVAMENTE no formato JSON com a estrutura exata abaixo:
 {
-  "categoria": "Categoria identificada (ex: Contrato)",
+  "categoria": "Uma Categoria Única e Padronizada",
   "metadados": {
-    "titulo": "Título identificado no texto ou null",
+    "titulo": "Título identificado ou null",
     "autor": "Nome do autor identificado ou null",
-    "data": "Data principal do documento no formato DD-MM-YYYY ou null",
-    "palavrasChave": ["palavra-chave1", "palavra-chave2", ...],
-    "resumo": "Resumo objetivo de até 3 frases do conteúdo principal"
+    "data": "Data principal no formato DD-MM-YYYY ou null",
+    "palavrasChave": ["palavra-chave1", "palavra-chave2"],
+    "resumo": "Resumo objetivo de até 3 frases do conteúdo principal."
   }
 }
-Importante:
-- Mantenha a estrutura JSON conforme especificado.
-- Utilize null para campos não identificados.
-- As palavras-chave devem ser relevantes e representativas do conteúdo.
-- O resumo deve ser conciso e capturar a essência do documento.
 `;
         
-        // 7. Envia o prompt para o Amazon Bedrock e aguarda a resposta em JSON.
+        // Chama IA Bedrock para classificar documento
         const respostaJson = await invocarBedrock(promptFinal);
+        
+        // Padroniza categoria antes de salvar
+        if (respostaJson.categoria) {
+            respostaJson.categoria = padronizarCategoria(respostaJson.categoria);
+        }
 
-        // 8. Atualiza o registro no DynamoDB com o resultado da IA e muda o status para "PROCESSED".
+        // Atualiza DynamoDB com resultado da IA
         await atualizarMetadados(doc_uuid, "PROCESSED", respostaJson);
 
-        // 9. Envia o resultado final da análise de volta para o frontend.
+        // Envia resposta para o frontend
         res.json(respostaJson);
 
     } catch (error) {
-        // Em caso de qualquer falha no processo, registra o erro e envia uma resposta de erro 500.
-        console.error(`Erro no controller para o doc_uuid: ${doc_uuid}`, error);
-        res.status(500).json({ erro: 'Erro ao processar o arquivo com a IA.' });
+        console.error(`Erro no controller para o doc_uuid: ${doc_uuid}`, error); // Log do erro
+        await atualizarMetadados(doc_uuid, "FAILED", { erro: error.message }); // Marca como falho
+        res.status(500).json({ erro: 'Erro ao processar o arquivo com a IA.' }); // Resposta de erro
     }
 };
 
-/**
- * Controller para buscar documentos. Se um termo de busca for fornecido, ele filtra os resultados.
- * Caso contrário, retorna todos os documentos recentes.
- */
+// Controller para buscar documentos com filtros
 export const buscarDocumentosController = async (req, res) => {
     try {
-        const { termo } = req.query; // Pega o termo de busca da URL (ex: /buscar?termo=contrato)
-        const resultados = await buscarDocumentos(termo); // Chama a função de busca no serviço do DynamoDB.
-        res.json(resultados); // Retorna a lista de documentos encontrados.
+        const { termo, categoria, sortOrder, limit, nextToken } = req.query; // Filtros da busca
+        const exclusiveStartKey = nextToken ? JSON.parse(Buffer.from(nextToken, 'base64').toString('utf-8')) : null;
+        const limitNumber = limit ? parseInt(limit, 10) : 10;
+
+        // Busca no DynamoDB
+        const { documentos, lastEvaluatedKey } = await buscarDocumentos(
+            termo,
+            categoria,
+            sortOrder,
+            limitNumber,
+            exclusiveStartKey
+        );
+
+        // Prepara token da próxima página
+        const nextTokenString = lastEvaluatedKey 
+            ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString('base64') 
+            : null;
+
+        // Retorna documentos e token de paginação
+        res.json({
+            documentos,
+            nextToken: nextTokenString
+        });
     } catch (error) {
-        console.error(`Erro no controller de busca:`, error);
-        res.status(500).json({ erro: 'Erro ao buscar os documentos.' });
+        console.error(`Erro no controller de busca:`, error); // Log de erro
+        res.status(500).json({ erro: 'Erro ao buscar os documentos.' }); // Resposta de erro
     }
 };
 
-/**
- * Controller para gerar um link de download seguro e temporário para um arquivo no S3.
- */
+// Controller para gerar link de download seguro
 export const downloadDocumentoController = async (req, res) => {
     try {
-        const { bucket, key } = req.query; // Pega o nome do bucket e a chave do arquivo da URL.
+        const { bucket, key } = req.query; // Pega parâmetros
         if (!bucket || !key) {
             return res.status(400).json({ erro: 'Parâmetros inválidos para o download.' });
         }
-        const downloadUrl = await gerarUrlDownload(bucket, key); // Gera a URL pré-assinada.
-        res.json({ downloadUrl }); // Envia a URL de volta para o frontend.
+        const downloadUrl = await gerarUrlDownload(bucket, key); // Gera link temporário
+        res.json({ downloadUrl }); // Retorna para o frontend
     } catch (error) {
-        console.error(`Erro no controller de download:`, error);
-        res.status(500).json({ erro: 'Erro ao gerar o link de download.' });
+        console.error(`Erro no controller de download:`, error); // Log de erro
+        res.status(500).json({ erro: 'Erro ao gerar o link de download.' }); // Resposta de erro
+    }
+};
+
+// Controller para apagar documentos do S3 e DynamoDB
+export const apagarDocumentoController = async (req, res) => {
+    const { documentos } = req.body; // Lista de documentos recebida
+
+    if (!documentos || !Array.isArray(documentos) || documentos.length === 0) {
+        return res.status(400).json({ erro: 'Nenhum documento selecionado para apagar.' });
+    }
+
+    try {
+        // Monta promessas de exclusão para cada documento
+        const promessasDeExclusao = documentos.map(doc => {
+            if (doc.bucketName && doc.s3Key && doc.doc_uuid) {
+                return Promise.all([
+                    apagarDoS3(doc.bucketName, doc.s3Key), // Remove do S3
+                    apagarMetadados(doc.doc_uuid) // Remove do DynamoDB
+                ]);
+            }
+            return Promise.resolve(); // Se inválido, ignora
+        });
+
+        await Promise.all(promessasDeExclusao); // Executa tudo em paralelo
+        res.status(200).json({ mensagem: 'Documentos selecionados foram apagados com sucesso.' });
+    } catch (error) {
+        console.error(`Erro no controller de exclusão em lote:`, error); // Log de erro
+        res.status(500).json({ erro: 'Erro ao apagar os documentos.' }); // Resposta de erro
+    }
+};
+
+// Controller para listar categorias únicas
+export const listarCategoriasController = async (req, res) => {
+    try {
+        const categorias = await listarCategoriasUnicas(); // Busca no DynamoDB
+        res.json(categorias); // Retorna categorias
+    } catch (error) {
+        console.error(`Erro no controller de categorias:`, error); // Log de erro
+        res.status(500).json({ erro: 'Erro ao listar as categorias.' }); // Resposta de erro
     }
 };

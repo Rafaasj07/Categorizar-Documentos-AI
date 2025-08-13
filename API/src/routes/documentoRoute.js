@@ -3,7 +3,9 @@ import multer from 'multer'; // Middleware para upload de arquivos
 import {
     categorizarComArquivo,
     buscarDocumentosController,
-    downloadDocumentoController
+    downloadDocumentoController, 
+    apagarDocumentoController,
+    listarCategoriasController
 } from '../controllers/documentoController.js'; // Importa controllers
 
 const router = express.Router(); // Cria instância de rotas
@@ -18,4 +20,10 @@ router.get('/buscar', buscarDocumentosController);
 // Rota para gerar link de download
 router.get('/download', downloadDocumentoController);
 
-export default router; // Exporta rotas
+// Rota para apagar arquivo
+router.delete('/apagar', apagarDocumentoController);
+
+// Rota para listar todas as categorias
+router.get('/categorias', listarCategoriasController);
+
+export default router; // Exporta rotas para uso no app
