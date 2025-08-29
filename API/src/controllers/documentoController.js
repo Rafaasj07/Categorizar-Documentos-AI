@@ -1,6 +1,14 @@
 import { v4 as uuidv4 } from 'uuid'; // Gera IDs únicos
 import { uploadParaS3, gerarUrlDownload, apagarDoS3 } from '../services/s3Service.js'; // Funções para S3
-import { registrarMetadados, atualizarMetadados, buscarDocumentos, apagarMetadados, listarCategoriasUnicas } from '../services/dynamoDbService.js'; // Funções para DynamoDB
+import {
+    registrarMetadados,
+    atualizarMetadados,
+    buscarDocumentos,
+    apagarMetadados,
+    listarCategoriasUnicas,
+    registrarCorrecaoCategoria,
+    buscarExemplosDeCorrecao
+} from '../services/dynamoDbService.js'; // Funções para DynamoDB
 import { invocarBedrock } from "../services/bedrockService.js"; // Chama IA Bedrock
 import { extrairTextoComTextract } from '../services/textractService.js'; // Extrai texto do PDF
 
@@ -14,18 +22,31 @@ const padronizarCategoria = (categoria) => {
     return partePrincipal.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
 };
 
-// Controller principal: categoriza documento com IA
+// Função para dividir texto em pedaços (chunks)
+const MAX_CHUNK_SIZE = 15000; // Defina um tamanho máximo seguro para o prompt
+
+function criarChunks(texto) {
+    if (texto.length <= MAX_CHUNK_SIZE) {
+        return [texto];
+    }
+    const chunks = [];
+    for (let i = 0; i < texto.length; i += MAX_CHUNK_SIZE) {
+        chunks.push(texto.substring(i, i + MAX_CHUNK_SIZE));
+    }
+    return chunks;
+}
+
+
+// Controller principal: categoriza documento com IA (VERSÃO MELHORADA)
 export const categorizarComArquivo = async (req, res) => {
-    const doc_uuid = uuidv4(); // ID único do documento
+    const doc_uuid = uuidv4();
     try {
-        if (!req.file) { // Verifica se enviaram arquivo
+        if (!req.file) {
             return res.status(400).json({ erro: 'Nenhum arquivo enviado.' });
         }
 
-        // Upload do PDF para S3
         const { s3Key, bucketName } = await uploadParaS3(req.file.buffer, req.file.originalname);
 
-        // Salva metadados iniciais no DynamoDB
         const metadadosIniciais = {
             doc_uuid, s3Key, bucketName,
             fileName: req.file.originalname,
@@ -37,66 +58,111 @@ export const categorizarComArquivo = async (req, res) => {
         };
         await registrarMetadados(metadadosIniciais);
 
-        // Extrai texto do PDF usando Textract
         const textoDoPdf = await extrairTextoComTextract(bucketName, s3Key);
 
-        // Busca categorias já existentes para sugerir à IA
+        const chunks = criarChunks(textoDoPdf);
+        if (chunks.length > 1) {
+            console.log(`Documento muito longo. Analisando o primeiro de ${chunks.length} chunks.`);
+        }
+        const textoParaAnalise = chunks[0];
+
         const categoriasExistentes = await listarCategoriasUnicas();
+        const exemplosDeCorrecao = await buscarExemplosDeCorrecao();
+
         const instrucaoCategorias = categoriasExistentes.length > 0
-            ? `Considere reutilizar uma das seguintes categorias existentes se for apropriado: [${categoriasExistentes.join(', ')}].`
+            ? `Considere reutilizar uma das seguintes categorias existentes: [${categoriasExistentes.join(', ')}].`
             : "Como não há categorias preexistentes, crie uma nova categoria apropriada.";
 
-        // Instrução extra do usuário (opcional)
+        const exemplosFormatados = exemplosDeCorrecao.map(ex => `- Texto começando com "${ex.texto.substring(0, 50)}..." -> Categoria: "${ex.categoria}"`).join('\n');
+
         const { promptUsuario } = req.body;
 
-        // Monta prompt final para Bedrock
         const promptFinal = `
-Você é um modelo de linguagem especializado em análise documental avançada.
-Analise o seguinte texto extraído de um documento PDF e execute as tarefas abaixo com precisão:
+            Você é um analista de documentos sênior, especializado em extrair informações estruturadas de textos complexos com altíssima precisão.
 
-1.  **Classificação**: Atribua ao documento uma única e concisa categoria. ${instrucaoCategorias} Se precisar criar uma nova, use o formato Title Case (Ex: "Contrato de Aluguel", "Fatura de Energia", "Prova de Legislação"). Evite o uso de barras "/".
-2.  **Extração de Metadados**: Extraia os principais metadados do texto. Para campos não encontrados, use o valor \`null\`.
+            Sua Missão:
+            Analise o texto fornecido e retorne um objeto JSON com a seguinte estrutura. NÃO inclua nenhuma explicação ou texto fora do objeto JSON.
 
----
-Texto extraído do documento:
-"""
-${textoDoPdf}
-"""
-Instrução adicional do usuário: "${promptUsuario || "Nenhuma"}"
+            Estrutura de Resposta JSON Exigida:
+            {
+            "categoria": "A categoria mais apropriada em formato Title Case",
+            "scoreConfianca": 0.95,
+            "metadados": {
+                "titulo": "O título principal do documento ou null",
+                "autor": "O autor principal, se identificado, ou null",
+                "data": "A data mais relevante no formato DD-MM-YYYY ou null",
+                "palavrasChave": ["lista", "de", "termos", "relevantes"],
+                "resumo": "Um resumo executivo de 2 a 3 frases sobre o propósito do documento."
+            }
+            }
 
-Responda EXCLUSIVAMENTE no formato JSON com a estrutura exata abaixo:
-{
-  "categoria": "Uma Categoria Única e Padronizada",
-  "metadados": {
-    "titulo": "Título identificado ou null",
-    "autor": "Nome do autor identificado ou null",
-    "data": "Data principal no formato DD-MM-YYYY ou null",
-    "palavrasChave": ["palavra-chave1", "palavra-chave2"],
-    "resumo": "Resumo objetivo de até 3 frases do conteúdo principal."
-  }
-}
-`;
-        
-        // Chama IA Bedrock para classificar documento
+            Diretrizes e Regras:
+            1. Categorização:
+            * Atribua a categoria mais específica possível.
+            * Use o formato Title Case (Ex: "Contrato de Prestação de Serviços").
+            * ${instrucaoCategorias}
+            ---
+            * **Use estes exemplos de correções humanas como guia principal:**
+                ${exemplosFormatados || "Nenhum exemplo de correção disponível."}
+            ---
+            * Se não houver exemplos de correções, use estes exemplos gerais como guia:
+                - Texto sobre aluguel de imóvel -> Categoria: "Contrato de Aluguel"
+                - Texto com consumo de energia elétrica -> Categoria: "Fatura de Energia"
+                - Texto detalhando a compra de produtos com impostos (ICMS, IPI) -> Categoria: "Nota Fiscal"
+                - Documento com atas de uma reunião corporativa -> Categoria: "Ata de Reunião"
+                - Texto apresentando resultados financeiros trimestrais de uma empresa -> Categoria: "Relatório Financeiro"
+
+            2. Score de Confiança: Avalie sua certeza sobre a categoria (1.0 = certeza absoluta).
+
+            3. Extração de Metadados:
+            * resumo: Deve ser objetivo e capturar a essência do documento.
+            * data: Procure a data principal do documento.
+            * palavrasChave: Extraia até 5 termos que definam o documento.
+            * Se um campo não for encontrado, o valor DEVE ser \`null\`.
+
+            Instrução Adicional do Usuário: "${promptUsuario || "Nenhuma"}"
+
+            ---
+            Texto a ser Analisado:
+            """
+            ${textoParaAnalise}
+            """
+            `;
+
         const respostaJson = await invocarBedrock(promptFinal);
-        
-        // Padroniza categoria antes de salvar
+
         if (respostaJson.categoria) {
             respostaJson.categoria = padronizarCategoria(respostaJson.categoria);
         }
 
-        // Atualiza DynamoDB com resultado da IA
         await atualizarMetadados(doc_uuid, "PROCESSED", respostaJson);
 
-        // Envia resposta para o frontend
         res.json(respostaJson);
 
     } catch (error) {
-        console.error(`Erro no controller para o doc_uuid: ${doc_uuid}`, error); // Log do erro
-        await atualizarMetadados(doc_uuid, "FAILED", { erro: error.message }); // Marca como falho
-        res.status(500).json({ erro: 'Erro ao processar o arquivo com a IA.' }); // Resposta de erro
+        console.error(`Erro no controller para o doc_uuid: ${doc_uuid}`, error);
+        await atualizarMetadados(doc_uuid, "FAILED", { erro: error.message });
+        res.status(500).json({ erro: 'Erro ao processar o arquivo com a IA.' });
     }
 };
+
+// Controller para corrigir categoria
+export const corrigirCategoriaController = async (req, res) => {
+    const { doc_uuid, categoriaCorrigida, textoCompleto } = req.body;
+
+    if (!doc_uuid || !categoriaCorrigida) {
+        return res.status(400).json({ erro: 'ID do documento e a categoria corrigida são obrigatórios.' });
+    }
+
+    try {
+        await registrarCorrecaoCategoria(doc_uuid, categoriaCorrigida, textoCompleto || null);
+        res.status(200).json({ mensagem: 'Correção registrada com sucesso.' });
+    } catch (error) {
+        console.error('Erro ao registrar correção:', error);
+        res.status(500).json({ erro: 'Falha ao salvar a correção.' });
+    }
+};
+
 
 // Controller para buscar documentos com filtros
 export const buscarDocumentosController = async (req, res) => {
@@ -115,8 +181,8 @@ export const buscarDocumentosController = async (req, res) => {
         );
 
         // Prepara token da próxima página
-        const nextTokenString = lastEvaluatedKey 
-            ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString('base64') 
+        const nextTokenString = lastEvaluatedKey
+            ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString('base64')
             : null;
 
         // Retorna documentos e token de paginação

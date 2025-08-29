@@ -5,7 +5,8 @@ import {
     buscarDocumentosController,
     downloadDocumentoController, 
     apagarDocumentoController,
-    listarCategoriasController
+    listarCategoriasController, 
+    corrigirCategoriaController
 } from '../controllers/documentoController.js'; // Importa controllers
 
 const router = express.Router(); // Cria instância de rotas
@@ -25,5 +26,8 @@ router.delete('/apagar', apagarDocumentoController);
 
 // Rota para listar todas as categorias
 router.get('/categorias', listarCategoriasController);
+
+// Rota para corrigir a categoria de um documento
+router.post('/corrigir-categoria', corrigirCategoriaController);
 
 export default router; // Exporta rotas para uso no app

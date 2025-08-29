@@ -128,3 +128,23 @@ export const apiListarCategorias = async () => {
         throw err;
     }
 };
+
+/**
+ * Envia uma correção de categoria para a API.
+ * @param {string} doc_uuid - O ID do documento a ser corrigido.
+ * @param {string} categoriaCorrigida - A nova categoria correta.
+ * @returns {Promise<Object>} - A resposta da API.
+ */
+export const apiCorrigirCategoria = async (doc_uuid, categoriaCorrigida) => {
+    try {
+        // Enviamos apenas o necessário. O backend foi ajustado para não exigir o texto.
+        const response = await api.post('documento/corrigir-categoria', {
+            doc_uuid,
+            categoriaCorrigida
+        });
+        return response.data;
+    } catch (err) {
+        console.error("Erro ao corrigir categoria", err);
+        throw err;
+    }
+};
