@@ -79,7 +79,7 @@ const Admin = () => {
         if (window.confirm(`Tem certeza que deseja apagar ${documentosParaApagar.length} arquivo(s)?`)) {
             setProcessando(true);
             try {
-               //Enviando a lista de objetos de documento completos, como o backend espera.
+                // Enviando a lista de objetos de documento completos, como o backend espera.
                 await apiApagarDocumento(documentosParaApagar);
                 
                 // Remove itens apagados da lista na tela

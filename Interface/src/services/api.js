@@ -44,14 +44,18 @@ api.interceptors.request.use(
 
 // ====================== FUNÇÕES DE API ======================
 
-// Envia um arquivo + prompt para categorização
+/**
+ * Envia um arquivo PDF junto com uma instrução adicional para análise.
+ * @param {string} promptUsuario - Texto adicional para a IA.
+ * @param {File} arquivo - Arquivo PDF selecionado.
+ * @returns {Promise<Object>} - Resposta JSON da API com a análise.
+ */
 export const apiCategorizarComArquivo = async (promptUsuario, arquivo) => {
     const formData = new FormData();
     formData.append('promptUsuario', promptUsuario);
     formData.append('arquivo', arquivo);
 
     try {
-        // POST multipart/form-data para a rota "documento/categorizar-com-arquivo"
         const response = await api.post('documento/categorizar-com-arquivo', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
@@ -62,7 +66,11 @@ export const apiCategorizarComArquivo = async (promptUsuario, arquivo) => {
     }
 };
 
-// Busca documentos com filtros (params são enviados como query string)
+/**
+ * Busca documentos na API com filtros e paginação.
+ * @param {object} params - Parâmetros de busca (termo, categoria, etc.).
+ * @returns {Promise<Object>} - Objeto com a lista de documentos.
+ */
 export const apiBuscarDocumentos = async (params = {}) => {
     try {
         const response = await api.get('documento/buscar', { params });
@@ -73,11 +81,16 @@ export const apiBuscarDocumentos = async (params = {}) => {
     }
 };
 
-// Obtém link de download de um documento (pré-assinado pelo backend)
+/**
+ * Obtém uma URL de download pré-assinada para um documento.
+ * @param {string} bucket - Nome do bucket S3.
+ * @param {string} key - Chave do arquivo no S3.
+ * @returns {Promise<string>} - URL temporária para download.
+ */
 export const apiDownloadDocumento = async (bucket, key) => {
     try {
         const response = await api.get(`documento/download`, {
-            params: { bucket, key } // bucket e key enviados como query string
+            params: { bucket, key }
         });
         return response.data.downloadUrl;
     } catch (err) {
@@ -86,11 +99,14 @@ export const apiDownloadDocumento = async (bucket, key) => {
     }
 };
 
-// Apaga documentos enviando lista de IDs/nomes no corpo da requisição
+/**
+ * Envia uma requisição para apagar uma lista de documentos.
+ * @param {Array<object>} documentos - Array de objetos de documento a serem apagados.
+ */
 export const apiApagarDocumento = async (documentos) => {
     try {
         const response = await api.delete('documento/apagar', {
-            data: { documentos } // DELETE com payload (lista de documentos)
+            data: { documentos }
         });
         return response.data;
     } catch (err) {
@@ -99,7 +115,10 @@ export const apiApagarDocumento = async (documentos) => {
     }
 };
 
-// Lista todas as categorias disponíveis no backend
+/**
+ * Busca a lista de todas as categorias únicas de documentos.
+ * @returns {Promise<Array>} - Array com as categorias.
+ */
 export const apiListarCategorias = async () => {
     try {
         const response = await api.get('documento/categorias');

@@ -2,7 +2,6 @@
  * Gerencia a interface e a lógica para login, cadastro, confirmação de usuário e
  * definição de nova senha no primeiro login, usando o AWS Cognito.
  */
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -152,8 +151,8 @@ function Login() {
         </form>
 
         <div className="mt-6 text-sm text-center">
-          {isSigningUp ? (
-            <p>Já tem uma conta? <button onClick={() => toggleForm('login')} className="font-medium text-indigo-400 hover:text-indigo-300">Faça Login</button></p>
+          {isSigningUp || isConfirming || isChangingPassword ? (
+             <p>Já tem uma conta? <button onClick={() => toggleForm('login')} className="font-medium text-indigo-400 hover:text-indigo-300">Faça Login</button></p>
           ) : (
             <p>Não tem uma conta? <button onClick={() => toggleForm('signup')} className="font-medium text-indigo-400 hover:text-indigo-300">Cadastre-se</button></p>
           )}

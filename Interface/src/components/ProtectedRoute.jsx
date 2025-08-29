@@ -2,7 +2,6 @@
  * Protege rotas com base no estado de autenticação e no papel (role) do usuário,
  * utilizando o contexto de autenticação.
  */
-
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { APP_CONFIG, USER_ROLES } from '../constants/appConstants';
@@ -20,7 +19,7 @@ const ProtectedRoute = ({ allowedRoles }) => {
         return <Navigate to={APP_CONFIG.LOGIN_PATH} replace />;
     }
 
-    // Se a rota exige um papel e o usuário não o tem, redireciona
+    // Se a rota exige um papel e o usuário não o tem, redireciona para a página inicial apropriada
     if (allowedRoles && !allowedRoles.includes(userRole)) {
         const homeRoute = userRole === USER_ROLES.ADMIN ? APP_CONFIG.DEFAULT_ADMIN_PATH : APP_CONFIG.DEFAULT_USER_PATH;
         return <Navigate to={homeRoute} replace />;

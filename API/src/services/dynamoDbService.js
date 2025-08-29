@@ -100,7 +100,6 @@ export async function buscarDocumentos(termoBusca, categoria, sortOrder = 'desc'
     };
 }
 
-
 /**
  * Apaga os metadados de um documento do DynamoDB.
  */

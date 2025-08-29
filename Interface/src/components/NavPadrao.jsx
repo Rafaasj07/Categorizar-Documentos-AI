@@ -22,10 +22,12 @@ function NavPadrao({ carregando }) {
     }
   };
 
-  // Estilos (mantidos como no original)
+  // Classes de estilo para links de navegação
   const linkClasses = `flex items-center gap-2 border border-indigo-600 text-indigo-400
     font-semibold py-2 px-6 rounded-full transition duration-300 ease-in-out bg-transparent
     ${carregando ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-600 hover:text-white cursor-pointer'}`;
+  
+  // Classes de estilo para botão de sair
   const sairClasses = `flex items-center gap-2 bg-red-600 text-white font-semibold
     py-2 px-6 rounded-full transition duration-300 ease-in-out
     ${carregando ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700 cursor-pointer'}`;
@@ -39,6 +41,7 @@ function NavPadrao({ carregando }) {
             Categorizador de Arquivos
           </h1>
         </div>
+        
         <div className="hidden md:flex items-center gap-4">
           {userRole !== 'admin' && (
             <>
