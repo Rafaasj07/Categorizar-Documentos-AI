@@ -13,8 +13,8 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
   // Cria um estado para armazenar mensagens de erro relacionadas ao upload de arquivos.
   const [arquivoErro, setArquivoErro] = useState('');
 
-  // Define o tamanho máximo permitido por arquivo em bytes (14MB).
-  const TAMANHO_MAXIMO_EM_BYTES = 14 * 1024 * 1024;
+  // Define o tamanho máximo permitido por arquivo em bytes (5MB).
+  const TAMANHO_MAXIMO_EM_BYTES = 5 * 1024 * 1024;
   // Define a quantidade máxima de arquivos que podem ser enviados de uma vez.
   const MAXIMO_ARQUIVOS = 10;
 
@@ -79,7 +79,7 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
       <form onSubmit={aoSubmeter}>
         <div className="mb-6">
           <label htmlFor="arquivo" className="block text-gray-300 text-lg font-semibold mb-2">
-            1. Envie até 10 PDFs (Máx: 14MB cada)
+            1. Envie até 10 PDFs (Máx: 5MB cada)
           </label>
           <input
             type="file"
