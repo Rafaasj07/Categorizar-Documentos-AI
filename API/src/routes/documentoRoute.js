@@ -1,33 +1,34 @@
-import express from 'express'; // Framework para rotas e APIs
-import multer from 'multer'; // Middleware para upload de arquivos
-import {
-    categorizarComArquivo,
-    buscarDocumentosController,
-    downloadDocumentoController, 
-    apagarDocumentoController,
-    listarCategoriasController, 
-    corrigirCategoriaController
-} from '../controllers/documentoController.js'; // Importa controllers
+import express from 'express';
+import multer from 'multer';
 
-const router = express.Router(); // Cria instância de rotas
-const upload = multer({ storage: multer.memoryStorage() }); // Configura upload em memória
+// Importa o controller principal de categorização.
+import { categorizarComArquivo } from '../controllers/documentoController.js';
 
-// Rota para envio e categorização de arquivo
+// Importa os novos controllers especializados.
+import { buscarDocumentosController } from '../controllers/buscaController.js';
+import { downloadDocumentoController } from '../controllers/downloadController.js';
+import { apagarDocumentoController } from '../controllers/deleteController.js';
+import { listarCategoriasController } from '../controllers/categoriaController.js';
+
+const router = express.Router();
+// Configura o multer para fazer upload de arquivos em memória.
+const upload = multer({ storage: multer.memoryStorage() });
+
+// --- DEFINIÇÃO DAS ROTAS ---
+
+// Rota para categorizar um novo documento.
 router.post('/categorizar-com-arquivo', upload.single('arquivo'), categorizarComArquivo);
 
-// Rota para busca de documentos
+// Rota para buscar documentos existentes.
 router.get('/buscar', buscarDocumentosController);
 
-// Rota para gerar link de download
+// Rota para gerar um link de download.
 router.get('/download', downloadDocumentoController);
 
-// Rota para apagar arquivo
+// Rota para apagar documentos.
 router.delete('/apagar', apagarDocumentoController);
 
-// Rota para listar todas as categorias
+// Rota para listar todas as categorias únicas.
 router.get('/categorias', listarCategoriasController);
 
-// Rota para corrigir a categoria de um documento
-router.post('/corrigir-categoria', corrigirCategoriaController);
-
-export default router; // Exporta rotas para uso no app
+export default router;

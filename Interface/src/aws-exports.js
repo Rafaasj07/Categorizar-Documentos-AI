@@ -4,30 +4,34 @@
  * Os valores aqui DEVEM corresponder aos recursos criados na sua conta AWS.
  */
 
+// Define e exporta um objeto com as configurações de conexão com a AWS.
 const awsExports = {
+    // Seção de configuração para Autenticação.
     "Auth": {
+        // Especifica o uso do Amazon Cognito.
         "Cognito": {
-            // ID do seu User Pool no Cognito
+            // ID do "User Pool" (banco de usuários) no Cognito.
             "userPoolId": "us-east-1_1LupqCAD1",
-            // ID do cliente do seu User Pool
+            // ID do "App Client" (aplicativo cliente) registrado no User Pool.
             "userPoolClientId": "6vdcq3882dqe4a8rssm6neasl1",
-            // Região da AWS onde os recursos estão
+            // Região da AWS onde o serviço Cognito está hospedado.
             "region": "us-east-1",
+            // Configurações para login social ou federado (OAuth).
             "loginWith": {
                 "oauth": {
-                    // Domínio do seu Hosted UI do Cognito
+                    // O domínio da interface de login hospedada pelo Cognito.
                     "domain": "categorizar-documentos-ai.auth.us-east-1.amazoncognito.com",
-                    // URIs para redirecionamento após login
+                    // URLs para as quais o usuário será redirecionado após o login.
                     "redirectSignIn": [
                         "http://localhost:5173/"
                     ],
-                    // URIs para redirecionamento após logout
+                    // URLs para as quais o usuário será redirecionado após o logout.
                     "redirectSignOut": [
                         "http://localhost:5173/"
                     ],
-                    // Tipo de resposta esperado do OAuth
+                    // Tipo de resposta esperado do processo de autenticação.
                     "responseType": "code",
-                    // Permissões que a aplicação solicita ao usuário
+                    // Permissões (escopos) que a aplicação solicita ao usuário durante o login.
                     "scopes": [
                         "email",
                         "profile",
@@ -38,22 +42,28 @@ const awsExports = {
             }
         }
     },
+    // Seção de configuração para a API.
     "API": {
+        // Lista de endpoints (pontos de acesso) da API.
         "endpoints": [
             {
-                // Nome amigável para a sua API monolítica
+                // Um nome amigável para identificar a API.
                 "name": "MinhaAPIDeDocumentos",
-                // Endpoint do seu backend Express.js
+                // A URL base do backend onde as requisições serão enviadas.
                 "endpoint": "http://localhost:3001/api/",
+                // A região da AWS onde a API está hospedada.
                 "region": "us-east-1"
             }
         ]
     },
+    // Seção de configuração para o Armazenamento (Storage).
     "Storage": {
-        // Nome do bucket S3 (mantido para referência, mas o upload é via backend)
+        // Nome do bucket no Amazon S3 usado pela aplicação.
         "bucket": "categorizar-docs-grupo1",
+        // A região da AWS onde o bucket S3 está localizado.
         "region": "us-east-1"
     }
 };
 
+// Exporta o objeto de configuração para ser usado pelo Amplify em outras partes do código.
 export default awsExports;

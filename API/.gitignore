@@ -8,11 +8,11 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # Dependências
-node_modules
+/node_modules
 
 # Arquivos de Build e Produção
-dist
-dist-ssr
+/dist
+/dist-ssr
 *.local
 
 # Arquivos de ambiente

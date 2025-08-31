@@ -6,7 +6,21 @@ import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 
 const dynamoDbClient = new DynamoDBClient({ region: process.env.AWS_REGION });
 const tableName = process.env.DYNAMODB_TABLE_NAME;
-const correcoesTableName = process.env.DYNAMODB_CORRECOES_TABLE_NAME;
+
+/**
+ * Normaliza uma string, removendo acentos e convertendo para minúsculas.
+ * @param {string} str A string para normalizar.
+ * @returns {string} A string normalizada.
+ */
+const normalizeString = (str) => {
+  if (!str || typeof str !== 'string') {
+    return '';
+  }
+  return str
+    .normalize("NFD") // Separa os acentos das letras
+    .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
+    .toLowerCase(); // Converte para minúsculas
+};
 
 // Registra metadados do documento no DynamoDB
 export async function registrarMetadados(metadata) {
@@ -38,56 +52,84 @@ export async function atualizarMetadados(doc_uuid, novoStatus, resultadoIa) {
     }
 }
 
-// Busca documentos no DynamoDB com filtros, ordenação e paginação.
+/**
+ * Busca documentos no DynamoDB, aplicando filtros e ordenação em memória
+ * de forma insensível a acentos e maiúsculas/minúsculas.
+ */
 export async function buscarDocumentos(termoBusca, categoria, sortOrder = 'desc', limit = 10, exclusiveStartKey = null) {
-    const filterExpressions = [];
-    const expressionValues = {};
+    const pageOffset = exclusiveStartKey ? parseInt(Buffer.from(exclusiveStartKey, 'base64').toString('utf-8')) : 0;
+    
+    let allDocuments = [];
+    let lastEvaluatedKeyFromScan = null;
 
-    if (termoBusca) {
-        filterExpressions.push("(contains(fileName, :termo) or contains(resultadoIa.metadados.resumo, :termo))");
-        expressionValues[":termo"] = termoBusca;
-    }
-
-    if (categoria) {
-        filterExpressions.push("resultadoIa.categoria = :categoria");
-        expressionValues[":categoria"] = categoria;
-    }
-
-    const params = {
-        TableName: tableName,
-        Limit: limit,
-        ExclusiveStartKey: exclusiveStartKey,
-    };
-
-    if (filterExpressions.length > 0) {
-        params.FilterExpression = filterExpressions.join(" AND ");
-        params.ExpressionAttributeValues = marshall(expressionValues);
-    }
-
-    try {
-        const command = new ScanCommand(params);
-        const { Items, LastEvaluatedKey } = await dynamoDbClient.send(command);
-
-        let documents = [];
-        if (Items) {
-            documents = Items.map(item => unmarshall(item));
-        }
-
-        documents.sort((a, b) => {
-            const dateA = new Date(a.uploadedTimeStamp);
-            const dateB = new Date(b.uploadedTimeStamp);
-            return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-        });
-
-        return {
-            documentos: documents,
-            lastEvaluatedKey: LastEvaluatedKey
+    // 1. Escaneia a tabela inteira para buscar todos os documentos
+    do {
+        const params = {
+            TableName: tableName,
+            ExclusiveStartKey: lastEvaluatedKeyFromScan,
         };
 
-    } catch (error) {
-        console.error("Erro ao buscar documentos no DynamoDB:", error);
-        throw new Error("Falha ao buscar documentos.");
+        try {
+            const command = new ScanCommand(params);
+            const { Items, LastEvaluatedKey } = await dynamoDbClient.send(command);
+            
+            if (Items) {
+                allDocuments.push(...Items.map(item => unmarshall(item)));
+            }
+            
+            lastEvaluatedKeyFromScan = LastEvaluatedKey;
+
+        } catch (error) {
+            console.error("Erro ao escanear documentos no DynamoDB:", error);
+            throw new Error("Falha ao buscar documentos.");
+        }
+    } while (lastEvaluatedKeyFromScan);
+
+    // 2. Filtra os resultados em memória (case-insensitive e accent-insensitive)
+    const normalizedTermo = normalizeString(termoBusca);
+    const normalizedCategoria = normalizeString(categoria);
+
+    const filteredDocuments = allDocuments.filter(doc => {
+        const nomeArquivo = normalizeString(doc.fileName);
+        const resumo = normalizeString(doc.resultadoIa?.metadados?.resumo);
+        const categoriaDoc = normalizeString(doc.resultadoIa?.categoria);
+
+        let matchTermo = true;
+        if (normalizedTermo) {
+            matchTermo = nomeArquivo.includes(normalizedTermo) ||
+                         resumo.includes(normalizedTermo) ||
+                         categoriaDoc.includes(normalizedTermo);
+        }
+
+        let matchCategoria = true;
+        if (normalizedCategoria) {
+            matchCategoria = categoriaDoc.includes(normalizedCategoria);
+        }
+        
+        return matchTermo && matchCategoria;
+    });
+
+    // 3. Ordena os documentos filtrados
+    filteredDocuments.sort((a, b) => {
+        const dateA = new Date(a.uploadedTimeStamp);
+        const dateB = new Date(b.uploadedTimeStamp);
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+
+    // 4. Aplica a paginação
+    const startIndex = pageOffset;
+    const endIndex = startIndex + limit;
+    const documentosParaPagina = filteredDocuments.slice(startIndex, endIndex);
+
+    let nextToken = null;
+    if (endIndex < filteredDocuments.length) {
+        nextToken = Buffer.from(endIndex.toString()).toString('base64');
     }
+
+    return {
+        documentos: documentosParaPagina,
+        nextToken: nextToken
+    };
 }
 
 // Apaga os metadados de um documento do DynamoDB.
@@ -96,7 +138,6 @@ export async function apagarMetadados(doc_uuid) {
         TableName: tableName,
         Key: marshall({ doc_uuid }),
     });
-
     try {
         await dynamoDbClient.send(command);
     } catch (error) {
@@ -111,82 +152,18 @@ export async function listarCategoriasUnicas() {
         TableName: tableName,
         ProjectionExpression: "resultadoIa.categoria",
     };
-
     try {
         const command = new ScanCommand(params);
         const { Items } = await dynamoDbClient.send(command);
-
         const categoriasUnicas = new Set();
         Items.map(item => unmarshall(item)).forEach(doc => {
             if (doc.resultadoIa && doc.resultadoIa.categoria) {
                 categoriasUnicas.add(doc.resultadoIa.categoria);
             }
         });
-
         return Array.from(categoriasUnicas).sort();
     } catch (error) {
         console.error("Erro ao listar categorias únicas no DynamoDB:", error);
         throw new Error("Falha ao listar categorias.");
-    }
-}
-
-// Salva a correção de categoria feita por um usuário
-export async function registrarCorrecaoCategoria(doc_uuid, categoriaCorrigida, textoCompleto) {
-    const command = new PutItemCommand({
-        TableName: correcoesTableName,
-        Item: marshall({
-            correcao_uuid: doc_uuid,
-            categoriaCorrigida: categoriaCorrigida,
-            // Armazena um trecho do texto para ser usado como exemplo no prompt
-            trechoTexto: textoCompleto ? textoCompleto.substring(0, 2000) : "Texto não fornecido",
-            timestamp: new Date().toISOString(),
-        }),
-    });
-    try {
-        await dynamoDbClient.send(command);
-    } catch (error) {
-        console.error("Erro ao registrar correção no DynamoDB:", error);
-    }
-}
-
-/**
- * Busca no DynamoDB as correções mais recentes feitas por usuários
- * para usar como exemplos ("few-shot") no prompt da IA.
- */
-export async function buscarExemplosDeCorrecao(limit = 5) {
-    console.log("Buscando exemplos de correções no DynamoDB...");
-    const params = {
-        TableName: correcoesTableName,
-        // Limitar a quantidade de itens escaneados pode ser uma otimização,
-        // mas a ordenação posterior garante que pegaremos os mais recentes.
-    };
-
-    try {
-        const command = new ScanCommand(params);
-        const { Items } = await dynamoDbClient.send(command);
-
-        if (!Items || Items.length === 0) {
-            return [];
-        }
-
-        // Converte os itens do DynamoDB para objetos JS
-        const correcoes = Items.map(item => unmarshall(item));
-
-        // Ordena as correções pela data (timestamp) para pegar as mais recentes
-        correcoes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-        // Pega apenas o número de exemplos definido pelo limite (padrão: 5)
-        const exemplosRecentes = correcoes.slice(0, limit);
-
-        // Mapeia para o formato que o prompt espera: { texto, categoria }
-        return exemplosRecentes.map(ex => ({
-            texto: ex.trechoTexto,
-            categoria: ex.categoriaCorrigida
-        }));
-
-    } catch (error) {
-        console.error("Erro ao buscar exemplos de correção no DynamoDB:", error);
-        // Em caso de erro, retorna um array vazio para não quebrar a aplicação
-        return [];
     }
 }
