@@ -110,6 +110,18 @@ export const categorizarComArquivo = async (req, res) => {
 
         // 7. Monta as instruções (prompt) para a IA, incluindo o texto a ser analisado.
         const { promptUsuario } = req.body;
+
+        // Busca categorias existentes para guiar a IA e manter a consistência.
+        console.log("Buscando categorias existentes para o prompt...");
+        const categoriasExistentes = await listarCategoriasUnicas();
+        let instrucaoCategorias = "Como não há categorias preexistentes, crie uma nova categoria apropriada.";
+        if (categoriasExistentes && categoriasExistentes.length > 0) {
+            instrucaoCategorias = `Considere fortemente reutilizar uma das seguintes categorias existentes, se aplicável: [${categoriasExistentes.join(', ')}].`;
+            console.log(`Categorias encontradas: ${categoriasExistentes.length}`);
+        } else {
+            console.log("Nenhuma categoria existente encontrada.");
+        }
+
         const promptFinal = `
         Você é um analista de documentos sênior, especializado em extrair informações estruturadas de textos complexos com altíssima precisão.
 
@@ -136,6 +148,7 @@ export const categorizarComArquivo = async (req, res) => {
         3. Categoria:
         - Atribua a categoria mais específica possível.
         - Use Title Case (Ex: "Contrato de Aluguel").
+        - ${instrucaoCategorias} 
         - Se o texto for muito curto ou sem sentido para definir uma categoria, use "Não Identificado".
         - Exemplos:
             * Texto sobre aluguel de imóvel -> Categoria: "Contrato de Aluguel"
