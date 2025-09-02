@@ -1,3 +1,6 @@
+# Configs
+src/aws-exports.js
+
 # Logs
 logs
 *.log
