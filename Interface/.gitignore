@@ -1,5 +1,5 @@
 # Configs
-src/aws-exports.js
+/src/aws-exports.js
 
 # Logs
 logs
