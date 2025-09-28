@@ -1,0 +1,56 @@
+services:
+  backend:
+    build:
+      context: ./backend       # caminho para a pasta do backend
+      dockerfile: Dockerfile   # arquivo Dockerfile para build
+    container_name: categorizador_backend
+    ports:
+      - "3001:3001"            # expõe a porta 3001
+    volumes:
+      - ./backend:/usr/src/app # monta código local para desenvolvimento
+      - /usr/src/app/node_modules
+    env_file:
+      - ./backend/.env         # arquivo de variáveis de ambiente
+    depends_on:
+      mongo:
+        condition: service_healthy  # aguarda o Mongo estar saudável
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"             # porta de acesso via API
+      - "9001:9001"             # porta do console web
+    volumes:
+      - minio-data:/data        # persiste dados do MinIO
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db     # persiste dados do MongoDB
+    healthcheck:                 # verifica se o MongoDB está pronto
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama  # persiste dados do Ollama
+
+volumes:
+  minio-data:
+  mongo-data:
+  ollama-data:

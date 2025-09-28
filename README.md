@@ -1,84 +1,75 @@
-# 📂 Categorizar Documentos AI
+# 📂 Categorizador de Documentos com IA
 
-Este projeto utiliza **Inteligência Artificial Generativa** da AWS (Amazon Bedrock com o modelo Claude 3 Haiku) para **analisar, categorizar e extrair metadados de documentos PDF** de forma automatizada e eficiente. A aplicação conta com um sistema de autenticação robusto via **Amazon Cognito**, com suporte a múltiplos usuários e controle de acesso baseado em papéis.
+Este projeto utiliza **Inteligência Artificial Generativa** (rodando localmente com Ollama e o modelo Llama 3) para **analisar, categorizar e extrair metadados de documentos PDF** de forma automatizada e eficiente. A aplicação conta com um sistema de autenticação próprio, baseado em JWT, com suporte a múltiplos usuários e controle de acesso por papéis.
 
-A arquitetura foi refinada para utilizar um pipeline avançado de processamento de documentos, combinando a extração de texto e imagens com a biblioteca `pdfjs-dist` e aplicando OCR (Reconhecimento Óptico de Caracteres) com **Amazon Textract** apenas quando necessário, garantindo maior precisão e performance.
-
------
-
-## 🚀 Acessar a Aplicação (Deploy)
-
-Você pode testar a aplicação em produção no seguinte link:
-
-**[https://categorizar-documentos-ai-1.onrender.com/login](https://categorizar-documentos-ai-1.onrender.com/login)**
-
------
+A arquitetura foi projetada para ser executada em um ambiente de desenvolvimento local com Docker, utilizando um pipeline otimizado de processamento de documentos que combina extração de texto/imagens com `pdfjs-dist` e OCR (Reconhecimento Óptico de Caracteres) com Tesseract.
 
 ## ✨ Funcionalidades Principais
 
-  * 🔑 **Autenticação de Usuários**
+  * 🔑 **Autenticação Própria com JWT**
 
-      * Sistema completo de login, cadastro, confirmação de conta e redefinição de senha com **AWS Cognito**.
+      * Sistema completo de cadastro e login de usuários.
+      * As senhas são armazenadas de forma segura no banco de dados usando criptografia `bcryptjs`.
+      * O acesso às rotas protegidas é controlado via JSON Web Tokens (JWT), garantindo que apenas usuários autenticados possam interagir com a API.
 
   * 🛡 **Controle de Acesso por Papel (Role)**
 
-      * Perfis de `usuário` e `admin` com permissões distintas, onde usuários podem categorizar e buscar, e administradores gerenciam todos os arquivos do sistema.
+      * Perfis de `user` e `admin` com permissões distintas. Usuários podem categorizar e buscar seus documentos, enquanto administradores gerenciam todos os arquivos do sistema.
+      * O sistema cria automaticamente um usuário `admin` e um `user` no primeiro login para facilitar os testes.
 
   * 📤 **Upload de Documentos em Lote**
 
       * Envio de até **10 arquivos PDF** simultaneamente, com validação de tamanho (máx. 5MB por arquivo) e quantidade.
 
-  * 🤖 **Análise Híbrida com IA Avançada**
+  * 🤖 **Análise Híbrida com IA Local**
 
-      * Cada documento passa por um pipeline de processamento otimizado:
-        1.  **Extração de Conteúdo:** O texto e as imagens são extraídos de cada página do PDF usando `pdfjs-dist`.
-        2.  **OCR Inteligente:** O **Amazon Textract** é aplicado apenas nas imagens extraídas para converter conteúdo visual em texto.
-        3.  **Análise Generativa:** O texto consolidado é enviado ao **Amazon Bedrock (Claude 3 Haiku)** para extrair:
-              * **Categoria** (ex: Contrato, Nota Fiscal, Relatório Financeiro).
-              * **Metadados Relevantes**: Título, autor, data, palavras-chave e um resumo objetivo do conteúdo.
+      * Cada documento passa por um pipeline de processamento otimizado no backend:
+        1.  **Extração de Conteúdo**: O texto e as imagens são extraídos de cada página do PDF usando `pdfjs-dist`.
+        2.  **OCR com Tesseract**: O Tesseract é aplicado nas imagens extraídas para converter conteúdo visual em texto.
+        3.  **Análise Generativa**: O texto consolidado é enviado ao **Ollama (com o modelo Llama 3)** para extrair a **categoria** e **metadados relevantes** como título, autor, data, palavras-chave e um resumo.
 
   * 🖥 **Painel de Administração Simplificado**
 
-      * Interface para visualização de todos os documentos enviados ao sistema.
-      * Ferramentas para **busca, filtro e exclusão em lote**, otimizando a gestão dos arquivos.
+      * Interface para administradores visualizarem todos os documentos do sistema, com ferramentas para **busca, filtro e exclusão em lote**.
 
   * 🔎 **Busca e Filtros Avançados**
 
       * Pesquisa de documentos por **nome do arquivo, categoria ou conteúdo do resumo**.
-      * Opções para **ordenar** os resultados por data (mais recentes ou mais antigos).
-      * **Paginação** para navegar facilmente por grandes volumes de resultados.
+      * Opções para **ordenar** os resultados por data e **paginação** para facilitar a navegação.
 
-  * 🔒 **Download Seguro de Documentos**
+  * 🔒 **Armazenamento e Download Seguro de Documentos**
 
-      * Geração de links de download temporários e protegidos (pré-assinados) diretamente do Amazon S3, garantindo que os arquivos só possam ser acessados de forma autorizada.
+      * Os arquivos são armazenados de forma segura no **MinIO**.
+      * Geração de links de download temporários e protegidos (pré-assinados).
 
   * 📱 **Interface Totalmente Responsiva**
 
-      * Layout projetado com Tailwind CSS, adaptável para uma experiência de uso consistente em desktops e dispositivos móveis.
+      * Layout projetado com **Tailwind CSS**, adaptável para uma experiência de uso consistente em desktops e dispositivos móveis.
 
 -----
 
 ## 🏗 Arquitetura e Tecnologias
 
-O projeto é estruturado como um **monorepo** com uma **arquitetura monolítica**, dividido em `Interface` (frontend) e `API` (backend) para uma clara separação de responsabilidades.
+O projeto é estruturado como um monorepo, dividido em `frontend` e `backend`, com todos os serviços orquestrados via `docker-compose`.
 
-### Frontend (`Interface`)
+### Frontend (`frontend`)
 
-  * ⚛️ **React (Vite)** — Biblioteca principal para a construção da interface de usuário.
-  * 🎨 **Tailwind CSS** — Framework CSS para estilização rápida, moderna e responsiva.
-  * 🔌 **AWS Amplify SDK** — Facilita a integração com os serviços da AWS, especialmente o Cognito para autenticação.
-  * 🌐 **Axios** — Cliente HTTP para realizar a comunicação segura e eficiente com a API do backend.
-  * 🔄 **React Router** — Para gerenciamento de rotas e navegação na aplicação.
+  * ⚛️ **React (Vite)** — Biblioteca para a construção da interface de usuário.
+  * 🎨 **Tailwind CSS** — Framework para estilização moderna e responsiva.
+  * 🔐 **React Context API** — Para gerenciamento do estado de autenticação de forma global na aplicação.
+  * 🌐 **Axios** — Cliente HTTP para comunicação com a API, com interceptor para adicionar o token de autenticação.
+  * 🔄 **React Router** — Para gerenciamento de rotas e navegação.
 
-### Backend (`API`)
+### Backend (`backend`)
 
-  * 🟢 **Node.js & Express** — Plataforma e framework para a construção de uma API REST robusta e escalável.
-  * ☁️ **AWS SDK v3** — Kit de desenvolvimento para integração com os serviços da AWS:
-      * **Amazon S3** — Para o armazenamento seguro e durável dos arquivos PDF enviados pelos usuários.
-      * **Amazon Textract** — Utilizado de forma otimizada para realizar OCR (Reconhecimento Óptico de Caracteres) apenas em imagens extraídas dos PDFs.
-      * **Amazon Bedrock (Claude 3 Haiku)** — Serviço de IA generativa para a análise inteligente, categorização e extração de metadados dos textos.
-      * **Amazon DynamoDB** — Banco de dados NoSQL para persistência dos metadados de todos os documentos processados.
-  * 📄 **pdfjs-dist & canvas** — Bibliotecas utilizadas no backend para processar os arquivos PDF, extraindo seu conteúdo textual e visual antes da análise pela IA.
+  * 🟢 **Node.js & Express** — Plataforma e framework para a construção da API REST.
+  * 🐋 **Docker Compose** — Orquestra todos os serviços de backend (API, MinIO, MongoDB, Ollama).
+  * 🔐 **JWT & BcryptJS** — Para gerar tokens de autenticação seguros e criptografar senhas de usuários.
+  * 💾 **MinIO** — Armazenamento de objetos para os arquivos PDF.
+  * 📄 **MongoDB** — Banco de dados NoSQL para persistir os metadados dos documentos e as informações dos usuários.
+  * 🤖 **Ollama (Llama 3)** — Serviço para rodar o modelo de linguagem localmente.
+  * ✍️ **node-tesseract-ocr** — Biblioteca para realizar OCR em imagens extraídas dos PDFs.
+  * 📑 **pdfjs-dist & canvas** — Bibliotecas para processar e extrair o conteúdo de arquivos PDF.
 
 -----
 
@@ -86,70 +77,60 @@ O projeto é estruturado como um **monorepo** com uma **arquitetura monolítica*
 
 ### 🔧 Pré-requisitos
 
-  * Node.js **v18+**
-  * NPM ou Yarn
-  * Uma conta na AWS com credenciais de acesso configuradas e permissões para **S3, Textract, Bedrock e DynamoDB**.
-  * Um **Amazon Cognito User Pool** configurado com um App Client.
-  * Uma tabela no **Amazon DynamoDB** para armazenar os metadados dos documentos.
+  * **Docker** e **Docker Compose** instalados.
+  * **Node.js v18+**.
+  * **NPM** ou **Yarn**.
 
------
+### 🚀 Passo 1: Iniciar os Serviços de Backend com Docker
 
-### 🚀 Backend (API)
-
-1.  Acesse a pasta da API:
+1.  **Navegue até a raiz do projeto** no seu terminal:
     ```bash
-    cd ATUAL/API
+    cd Categorizar-Documentos-AI
     ```
-2.  Instale as dependências:
+2.  **Suba todos os containers**:
     ```bash
-    npm install
+    docker-compose up --build
     ```
-3.  Crie e configure o arquivo `.env` a partir do exemplo `.env.example`:
-    ```env
-    AWS_ACCESS_KEY_ID="SUA_ACCESS_KEY_ID_AQUI"
-    AWS_SECRET_ACCESS_KEY="SUA_SECRET_ACCESS_KEY_AQUI"
-    AWS_REGION="sua-regiao-aws"
-    S3_BUCKET_NAME="NOME_DO_SEU_BUCKET_S3"
-    DYNAMODB_TABLE_NAME="NOME_DA_SUA_TABELA_DYNAMODB"
-    CORS_ORIGIN="http://localhost:5173"
-    ```
-4.  Inicie o servidor em modo de desenvolvimento:
+      * A primeira execução pode demorar, pois o Docker precisará baixar as imagens. Deixe este terminal aberto para ver os logs.
+
+### 🤖 Passo 2: Configurar o Modelo de IA no Ollama
+
+1.  **Abra um novo terminal**.
+2.  **Execute o comando** para baixar o modelo `llama3` no container do Ollama:
     ```bash
-    npm run dev
+    docker exec -it ollama ollama pull llama3
     ```
-    ➜ A API estará disponível em `http://localhost:3001`
+3.  Aguarde a conclusão do download.
 
------
+### 🎨 Passo 3: Configurar e Iniciar o Frontend
 
-### 🎨 Frontend (Interface)
+1.  **Configure as variáveis de ambiente**:
+      * Na pasta `frontend`, verifique se o arquivo `.env` existe com o seguinte conteúdo:
+        ```env
+        VITE_API_URL=http://localhost:3001/api/
+        ```
+2.  **Inicie o Frontend**:
+      * Em um **novo terminal**, navegue até a pasta do frontend:
+        ```bash
+        cd frontend
+        ```
+      * Instale as dependências:
+        ```bash
+        npm install
+        ```
+      * Inicie o servidor de desenvolvimento:
+        ```bash
+        npm run dev
+        ```
 
-1.  Acesse a pasta da Interface:
-    ```bash
-    cd ATUAL/Interface
-    ```
-2.  Instale as dependências:
-    ```bash
-    npm install
-    ```
-3.  Configure a conexão com os serviços da AWS no arquivo `src/aws-exports.js`, preenchendo os dados do seu Cognito User Pool.
-4.  Crie um arquivo `.env` na raiz da pasta `Interface` com a URL da sua API:
-    ```env
-    VITE_API_URL=http://localhost:3001/api/
-    ```
-5.  Inicie a aplicação de desenvolvimento:
-    ```bash
-    npm run dev
-    ```
-    ➜ A aplicação estará disponível em `http://localhost:5173`
+### ✅ Passo 4: Acesse a Aplicação
 
------
-
-## 📖 Histórico e Evolução do Projeto
-
-Este projeto começou como uma exploração de **Arquitetura Orientada a Eventos (EDA)**. No entanto, para garantir maior **simplicidade, estabilidade e controle** sobre o fluxo de processamento, a decisão foi retornar a uma arquitetura **monolítica**, que foi significativamente reforçada e otimizada.
-
-A evolução mais importante foi a **substituição do pipeline de extração de texto**. A versão inicial dependia exclusivamente do AWS Textract para processar PDFs inteiros, o que poderia ser lento e custoso. A versão atual implementa um **processo híbrido e mais inteligente**: primeiro, utiliza a biblioteca `pdfjs-dist` para uma extração rápida de texto e imagens; em seguida, aplica o OCR do Textract de forma cirúrgica apenas nas imagens, maximizando a precisão e reduzindo o tempo de processamento.
-
-Além disso, o projeto foi simplificado pela **remoção da funcionalidade de "fine-tuning simulado"**, onde administradores corrigiam manualmente as categorias. A nova abordagem foca em um fluxo **totalmente automatizado**, confiando na capacidade do modelo Claude 3 Haiku e na qualidade do novo pipeline de extração de dados para fornecer resultados precisos desde o início.
-
-👉 O resultado é um sistema que combina a **solidez e a simplicidade de uma API monolítica** com um **backend de processamento de documentos de ponta**, entregando uma solução mais rápida, eficiente e fácil de manter.
+  * Abra seu navegador e acesse **`http://localhost:5173`**.
+  * O sistema criará dois usuários padrão na primeira vez que o servidor iniciar. Você pode usá-los para testar:
+      * **Administrador**:
+          * **Usuário**: `admin`
+          * **Senha**: `admin`
+      * **Usuário Comum**:
+          * **Usuário**: `user`
+          * **Senha**: `user`
+  * Você também pode criar novas contas através da página de cadastro.
