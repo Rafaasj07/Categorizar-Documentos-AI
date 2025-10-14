@@ -2,7 +2,7 @@ import { extrairTextoPdfComBiblioteca } from '../services/pdfjsService.js';
 import { v4 as uuidv4 } from 'uuid';
 import { uploadParaMinIO } from '../services/minioService.js';
 import { registrarMetadados, atualizarMetadados, listarCategoriasUnicas } from '../services/mongoDbService.js';
-import { invocarOllama } from "../services/ollamaService.js";
+import { invocarIA } from "../services/openRouterService.js"; // Alterado
 import { extractTextFromImage } from '../services/ocrService.js';
 
 // --- Funções Auxiliares para tratar o texto extraído ---
@@ -64,16 +64,16 @@ export const categorizarComArquivo = async (req, res) => {
         console.log(`Arquivo salvo no MinIO com a chave: ${minioKey}`);
 
         // 2. Salva as informações iniciais do arquivo no banco de dados.
-         const metadadosIniciais = { 
-            doc_uuid, 
-            minioKey, 
-            bucketName, 
-            fileName: req.file.originalname, 
-            fileSize: req.file.size, 
-            contentType: req.file.mimetype, 
+        const metadadosIniciais = {
+            doc_uuid,
+            minioKey,
+            bucketName,
+            fileName: req.file.originalname,
+            fileSize: req.file.size,
+            contentType: req.file.mimetype,
             userId: req.user.id,
-            uploadedTimeStamp: new Date(), 
-            status: "UPLOADED" 
+            uploadedTimeStamp: new Date(),
+            status: "UPLOADED"
         };
         await registrarMetadados(metadadosIniciais);
 
@@ -115,11 +115,9 @@ export const categorizarComArquivo = async (req, res) => {
         if (categoriasExistentes && categoriasExistentes.length > 0) {
             instrucaoCategorias = `Considere fortemente reutilizar uma das seguintes categorias existentes, se aplicável: [${categoriasExistentes.join(', ')}].`;
         }
-        
+
         // O prompt é uma instrução detalhada que guia a IA para retornar um JSON estruturado.
         const promptFinal = `
-        Você é um analista de documentos sênior, especializado em extrair informações estruturadas de textos complexos com altíssima precisão.
-
         Sua única tarefa é analisar o texto abaixo e retornar um objeto JSON.
         A sua resposta DEVE ser APENAS o objeto JSON, sem nenhum texto, comentário ou explicação adicional.
 
@@ -180,9 +178,9 @@ export const categorizarComArquivo = async (req, res) => {
         Lembre-se: sua resposta final deve ser apenas o JSON.
         `;
 
-        // 7. Envia o prompt para o serviço da IA (Ollama).
-        console.log("Enviando texto para análise do Ollama...");
-        const respostaJson = await invocarOllama(promptFinal);
+        // 7. Envia o prompt para o serviço da IA (OpenRouter).
+        console.log("Enviando texto para análise da IA...");
+        const respostaJson = await invocarIA(promptFinal);
 
         // 8. Padroniza a categoria recebida da IA.
         if (respostaJson.categoria) {

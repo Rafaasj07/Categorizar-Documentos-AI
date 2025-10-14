@@ -2,22 +2,40 @@ import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-// instância base do Axios configurada com a URL da API
+// Instância base do Axios configurada com a URL da API.
 const api = axios.create({
   baseURL: API_URL,
 });
 
+// Adiciona um interceptor que anexa o token JWT a cada requisição.
+api.interceptors.request.use(
+  (config) => {
+    // Pega as informações do usuário salvas no localStorage.
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      // Se o usuário estiver logado, adiciona o token ao cabeçalho Authorization.
+      const { token } = JSON.parse(userInfo);
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    // Em caso de erro na configuração da requisição, rejeita a promessa.
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 
-// envia um PDF e prompt do usuário para categorização
+// Envia um PDF e prompt do usuário para categorização.
 export const apiCategorizarComArquivo = async (promptUsuario, arquivo) => {
   const formData = new FormData();
   formData.append('promptUsuario', promptUsuario);
   formData.append('arquivo', arquivo);
   try {
-    const response = await api.post('documento/categorizar-com-arquivo', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    // O cabeçalho 'Content-Type' é definido automaticamente pelo navegador para FormData.
+    // O interceptor adicionará o cabeçalho 'Authorization' necessário.
+    const response = await api.post('documento/categorizar-com-arquivo', formData);
     return response.data;
   } catch (err) {
     console.error("Erro ao chamar API com arquivo", err);
@@ -25,7 +43,7 @@ export const apiCategorizarComArquivo = async (promptUsuario, arquivo) => {
   }
 };
 
-// busca documentos com parâmetros opcionais
+// Busca documentos com parâmetros opcionais.
 export const apiBuscarDocumentos = async (params = {}) => {
   try {
     const response = await api.get('documento/buscar', { params });
@@ -36,7 +54,7 @@ export const apiBuscarDocumentos = async (params = {}) => {
   }
 };
 
-// obtém link de download de um documento específico
+// Obtém link de download de um documento específico.
 export const apiDownloadDocumento = async (bucket, key) => {
   try {
     const response = await api.get('documento/download', {
@@ -49,7 +67,7 @@ export const apiDownloadDocumento = async (bucket, key) => {
   }
 };
 
-// apaga documentos passados como array
+// Apaga documentos passados como array.
 export const apiApagarDocumento = async (documentos) => {
   try {
     const response = await api.delete('documento/apagar', {
@@ -62,7 +80,7 @@ export const apiApagarDocumento = async (documentos) => {
   }
 };
 
-// lista todas as categorias disponíveis
+// Lista todas as categorias disponíveis.
 export const apiListarCategorias = async () => {
   try {
     const response = await api.get('documento/categorias');
