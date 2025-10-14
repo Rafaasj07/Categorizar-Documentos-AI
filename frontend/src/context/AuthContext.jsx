@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // ao carregar a aplicação, recupera o usuário salvo no localStorage e restaura o token no header da API
+    // Ao carregar a aplicação, recupera o usuário salvo no localStorage e restaura o token no header da API
     useEffect(() => {
         const storedUser = localStorage.getItem('userInfo');
         if (storedUser) {
@@ -48,12 +48,12 @@ export const AuthProvider = ({ children }) => {
 
     // limpa sessão do usuário e remove token do header da API
     const logout = () => {
-        setLoading(true); 
+        setLoading(true);
         setTimeout(() => {
             localStorage.removeItem('userInfo');
             setUser(null);
             delete api.defaults.headers.common['Authorization'];
-            setLoading(false); 
+            setLoading(false);
         }, 500);
     };
 
