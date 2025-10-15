@@ -5,23 +5,23 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
 // Configura a conexão com o container do MinIO no Docker.
+// Este cliente único é o correto para todas as operações.
 const minioClient = new Minio.Client({
-    endPoint: 'minio',
-    port: 9000,
-    useSSL: false,
-    accessKey: 'minioadmin',
-    secretKey: 'minioadmin'
+    endPoint: process.env.MINIO_ENDPOINT,
+    port: parseInt(process.env.MINIO_PORT, 10), 
+    useSSL: process.env.MINIO_USE_SSL === 'true', 
+    accessKey: process.env.MINIO_ACCESS_KEY,
+    secretKey: process.env.MINIO_SECRET_KEY
 });
+
 
 // Envia um arquivo para o armazenamento.
 export async function uploadParaMinIO(fileBuffer, originalName) {
-    // Cria um nome de arquivo único para evitar sobreposição.
     const fileExtension = path.extname(originalName);
     const minioKey = `documentos/${uuidv4()}${fileExtension}`;
     const bucketName = process.env.MINIO_BUCKET_NAME;
 
     try {
-        // Envia o objeto para o bucket no MinIO.
         await minioClient.putObject(bucketName, minioKey, fileBuffer, {
             'Content-Type': 'application/pdf'
         });
@@ -30,19 +30,6 @@ export async function uploadParaMinIO(fileBuffer, originalName) {
     } catch (error) {
         console.error("Erro ao fazer upload para o MinIO:", error);
         throw new Error("Falha no upload do arquivo para o MinIO.");
-    }
-}
-
-// Gera um link de download temporário e seguro para um arquivo.
-export async function gerarUrlDownloadMinIO(bucketName, minioKey) {
-    try {
-        // O link gerado expira em 1 hora (3600 segundos).
-        const url = await minioClient.presignedGetObject(bucketName, minioKey, 3600);
-        console.log(`URL de download gerada para a chave: ${minioKey}`);
-        return url;
-    } catch (error) {
-        console.error("Erro ao gerar URL pré-assinada do MinIO:", error);
-        throw new Error("Não foi possível gerar o link para download.");
     }
 }
 
@@ -57,7 +44,7 @@ export async function apagarDoMinIO(bucketName, minioKey) {
     }
 }
 
-// Verifica se o bucket (pasta principal) de armazenamento existe e, se não, o cria.
+// Verifica se o bucket de armazenamento existe e, se não, o cria.
 export async function criarBucketSeNaoExistir() {
     const bucketName = process.env.MINIO_BUCKET_NAME;
     try {
@@ -69,8 +56,19 @@ export async function criarBucketSeNaoExistir() {
             console.log(`Bucket "${bucketName}" já existe.`);
         }
     } catch (error) {
-        // Se não conseguir criar o bucket, a aplicação é encerrada.
         console.error('Erro ao criar o bucket:', error);
         process.exit(1);
+    }
+}
+
+// Busca um arquivo do MinIO e o retorna como um stream legível.
+export async function getObjectStreamFromMinIO(bucketName, minioKey) {
+    try {
+        const stream = await minioClient.getObject(bucketName, minioKey);
+        console.log(`Stream do arquivo ${minioKey} obtido com sucesso.`);
+        return stream;
+    } catch (error) {
+        console.error("Erro ao obter stream do objeto no MinIO:", error);
+        throw new Error("Falha ao buscar o arquivo no MinIO.");
     }
 }

@@ -55,19 +55,31 @@ const Buscar = () => {
     return () => clearTimeout(handler);
   }, [fetchDocumentos]);
 
-  // Lida com o clique no botão de download de um documento.
-  const handleDownload = async (doc) => {
-    setDownloading(doc.doc_uuid); // Ativa o estado de "baixando".
+// Lida com o clique no botão de download de um documento.
+ const handleDownload = async (doc) => {
+    setDownloading(doc.doc_uuid);
     try {
-      // Pede à API um link de download seguro e temporário.
-      const url = await apiDownloadDocumento(doc.bucketName, doc.minioKey);
-      window.open(url, '_blank'); // Abre o link para iniciar o download.
+      // A API agora retorna o arquivo diretamente como um 'blob'.
+      const blob = await apiDownloadDocumento(doc);
+      
+      // Cria uma URL temporária no navegador para o 'blob' recebido.
+      const url = window.URL.createObjectURL(blob);
+      
+      // Cria um link invisível, clica nele para iniciar o download e o remove.
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', doc.fileName); // Define o nome do arquivo.
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url); // Libera a memória.
+
     } catch (err) {
-      setErro('Não foi possível gerar o link de download.');
+      setErro('Não foi possível realizar o download.');
     } finally {
-      setDownloading(null); // Desativa o estado de "baixando".
+      setDownloading(null);
     }
-  };
+};
 
   // Funções para controlar a navegação entre as páginas de resultados.
   const handleNextPage = () => {

@@ -2,17 +2,20 @@ import icone from '../assets/icone.png';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-function NavPadrao() {
-  const { userRole, logout, loading } = useAuth();
+function NavPadrao({ carregando: carregandoDocs }) {
+  const { userRole, logout, loading: loadingAuth } = useAuth();
 
-  // estilos padrão para links e botão de sair (ajustados pelo estado "loading")
+  // Combina os dois estados de carregamento
+  const isLoading = loadingAuth || carregandoDocs;
+
+  // estilos padrão para links e botão de sair (ajustados pelo estado "isLoading")
   const linkClasses = `flex items-center gap-2 border border-indigo-600 text-indigo-400
     font-semibold py-2 px-6 rounded-full transition duration-300 ease-in-out bg-transparent
-    ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-600 hover:text-white cursor-pointer'}`;
+    ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-indigo-600 hover:text-white cursor-pointer'}`;
   
   const sairClasses = `flex items-center justify-center gap-2 bg-red-600 text-white font-semibold
     py-2 px-6 rounded-full transition duration-300 ease-in-out
-    ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700 cursor-pointer'}`;
+    ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-red-700 cursor-pointer'}`;
 
   return (
     // barra de navegação fixa no topo (versão desktop)
@@ -35,7 +38,7 @@ function NavPadrao() {
               <Link 
                 to="/categorizar" 
                 className={linkClasses} 
-                onClick={e => loading && e.preventDefault()}
+                onClick={e => isLoading && e.preventDefault()}
               >
                 <i className="bx bx-folder-open"></i> Categorizar
               </Link>
@@ -44,7 +47,7 @@ function NavPadrao() {
               <Link 
                 to="/buscar" 
                 className={linkClasses} 
-                onClick={e => loading && e.preventDefault()}
+                onClick={e => isLoading && e.preventDefault()}
               >
                 <i className="bx bx-search"></i> Buscar
               </Link>
@@ -52,8 +55,8 @@ function NavPadrao() {
           )}
           
           {/* botão de logout com ícone dinâmico (spinner ou sair) */}
-          <button onClick={logout} className={sairClasses} disabled={loading}>
-            {loading ? <i className='bx bx-loader-alt animate-spin'></i> : <i className='bx bx-log-out'></i>}
+          <button onClick={logout} className={sairClasses} disabled={isLoading}>
+            {loadingAuth ? <i className='bx bx-loader-alt animate-spin'></i> : <i className='bx bx-log-out'></i>}
             Sair
           </button>
         </div>

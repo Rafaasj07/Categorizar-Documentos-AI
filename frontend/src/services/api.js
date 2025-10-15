@@ -11,16 +11,18 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     // Pega as informações do usuário salvas no localStorage.
-    const userInfo = localStorage.getItem('userInfo');
+    const userInfo = localStorage.getItem('userInfo'); 
     if (userInfo) {
-      // Se o usuário estiver logado, adiciona o token ao cabeçalho Authorization.
+      // O backend espera o token no objeto 'token', mas ao fazer o login, o token é salvo diretamente
+      // no objeto 'userInfo'. A estrutura no localStorage é { _id, username, role, token }.
       const { token } = JSON.parse(userInfo);
-      config.headers['Authorization'] = `Bearer ${token}`;
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
     }
     return config;
   },
   (error) => {
-    // Em caso de erro na configuração da requisição, rejeita a promessa.
     return Promise.reject(error);
   }
 );
@@ -33,8 +35,6 @@ export const apiCategorizarComArquivo = async (promptUsuario, arquivo) => {
   formData.append('promptUsuario', promptUsuario);
   formData.append('arquivo', arquivo);
   try {
-    // O cabeçalho 'Content-Type' é definido automaticamente pelo navegador para FormData.
-    // O interceptor adicionará o cabeçalho 'Authorization' necessário.
     const response = await api.post('documento/categorizar-com-arquivo', formData);
     return response.data;
   } catch (err) {
@@ -55,14 +55,18 @@ export const apiBuscarDocumentos = async (params = {}) => {
 };
 
 // Obtém link de download de um documento específico.
-export const apiDownloadDocumento = async (bucket, key) => {
+export const apiDownloadDocumento = async (doc) => {
   try {
-    const response = await api.get('documento/download', {
-      params: { bucket, key }
+    const response = await api.post('documento/download', {
+      bucketName: doc.bucketName,
+      minioKey: doc.minioKey,
+      fileName: doc.fileName
+    }, {
+      responseType: 'blob', 
     });
-    return response.data.downloadUrl;
+    return response.data;
   } catch (err) {
-    console.error("Erro ao obter link de download", err);
+    console.error("Erro ao baixar documento", err);
     throw err;
   }
 };
