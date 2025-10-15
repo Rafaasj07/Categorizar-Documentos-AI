@@ -1,13 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const NavInferior = () => {
+const NavInferior = ({ carregando: carregandoDocs }) => {
   const navegar = useNavigate();
-  const { userRole, logout, loading } = useAuth();
+  const { userRole, logout, loading: loadingAuth } = useAuth();
+
+  // Combina o estado de loading da autenticação com o da categorização de documentos
+  const isLoading = loadingAuth || carregandoDocs;
 
   // dispara o logout apenas se não estiver em carregamento
   const handleLogoutClick = () => {
-    if (loading) return;
+    if (isLoading) return;
     logout();
   };
 
@@ -23,7 +26,7 @@ const NavInferior = () => {
           {/* botão para tela de categorização */}
           <button
             onClick={() => navegar('/categorizar')}
-            disabled={loading}
+            disabled={isLoading}
             className={buttonClasses}
             aria-label="Categorizar"
           >
@@ -34,7 +37,7 @@ const NavInferior = () => {
           {/* botão para tela de busca */}
           <button
             onClick={() => navegar('/buscar')}
-            disabled={loading}
+            disabled={isLoading}
             className={`${buttonClasses} pr-3`}
             aria-label="Buscar"
           >
@@ -45,11 +48,11 @@ const NavInferior = () => {
           {/* botão de logout com ícone dinâmico (spinner ou sair) */}
           <button
             onClick={handleLogoutClick}
-            disabled={loading}
+            disabled={isLoading}
             className={buttonClasses}
             aria-label="Sair"
           >
-            {loading ? <i className='bx bx-loader-alt animate-spin text-2xl'></i> : <i className="bx bx-log-out text-2xl"></i>}
+            {loadingAuth ? <i className='bx bx-loader-alt animate-spin text-2xl'></i> : <i className="bx bx-log-out text-2xl"></i>}
             <span className="text-xs font-semibold">Sair</span>
           </button>
         </>
@@ -57,11 +60,11 @@ const NavInferior = () => {
         // se for admin, mostra apenas o botão de sair
         <button
           onClick={handleLogoutClick}
-          disabled={loading}
+          disabled={isLoading}
           className={buttonClasses}
           aria-label="Sair"
         >
-          {loading ? <i className='bx bx-loader-alt animate-spin text-2xl'></i> : <i className="bx bx-log-out text-2xl"></i>}
+          {loadingAuth ? <i className='bx bx-loader-alt animate-spin text-2xl'></i> : <i className="bx bx-log-out text-2xl"></i>}
           <span className="text-xs font-semibold">Sair</span>
         </button>
       )}

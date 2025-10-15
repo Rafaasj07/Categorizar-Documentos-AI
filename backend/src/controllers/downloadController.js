@@ -1,24 +1,26 @@
-import { gerarUrlDownloadMinIO } from '../services/minioService.js';
+import { getObjectStreamFromMinIO } from '../services/minioService.js';
 
-// Função que lida com a requisição para criar um link de download.
+// Função que lida com a requisição para baixar o arquivo.
 export const downloadDocumentoController = async (req, res) => {
     try {
-        // Pega o nome do bucket e a chave do arquivo da URL.
-        const { bucket, key } = req.query;
+        const { bucketName, minioKey, fileName } = req.body;
 
-        // Verifica se as informações necessárias foram fornecidas.
-        if (!bucket || !key) {
-            return res.status(400).json({ erro: 'Parâmetros inválidos para o download.' });
+        if (!bucketName || !minioKey || !fileName) {
+            return res.status(400).json({ erro: 'Informações insuficientes para o download.' });
         }
 
-        // Gera uma URL de download temporária e segura.
-        const downloadUrl = await gerarUrlDownloadMinIO(bucket, key);
-        
-        // Retorna a URL gerada para o frontend.
-        res.json({ downloadUrl });
+        // Busca o stream do objeto no MinIO.
+        const stream = await getObjectStreamFromMinIO(bucketName, minioKey);
+
+        // Define os cabeçalhos para forçar o download no navegador.
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Type', 'application/octet-stream');
+
+        // Envia o stream do arquivo como resposta.
+        stream.pipe(res);
+
     } catch (error) {
-        // Se ocorrer um erro, informa o problema e retorna uma falha.
         console.error(`Erro no controller de download:`, error);
-        res.status(500).json({ erro: 'Erro ao gerar o link de download.' });
+        res.status(500).json({ erro: 'Erro ao baixar o arquivo.' });
     }
 };

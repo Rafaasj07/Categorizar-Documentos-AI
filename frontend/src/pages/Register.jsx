@@ -9,33 +9,41 @@ const Register = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    
+    const [mensagem, setMensagem] = useState(''); // Estado unificado para feedback
+    const [isSuccess, setIsSuccess] = useState(false); // Para diferenciar sucesso de erro
+
     const { register, loading } = useAuth();
     const navigate = useNavigate();
+
+    // Limpa as mensagens de feedback ao focar em um input
+    const limparFeedback = () => {
+        setMensagem('');
+        setIsSuccess(false);
+    };
 
     // Submissão do formulário de registro
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
-        setSuccess('');
+        limparFeedback();
 
-        // valida se as senhas coincidem
+        // Valida se as senhas coincidem
         if (password !== confirmPassword) {
-            setError('As senhas não coincidem.');
+            setMensagem('As senhas não coincidem.');
             return;
         }
 
         try {
-            await register(username, password); // chama função de registro do contexto
-            setSuccess('Cadastro realizado com sucesso! Redirecionando para o login...');
-            setTimeout(() => navigate('/login'), 2000); // redireciona após 2s
+            await register(username, password);
+            setMensagem('Cadastro realizado com sucesso! Redirecionando para o login...');
+            setIsSuccess(true);
+            setTimeout(() => navigate('/login'), 2000);
         } catch (err) {
-            setError(err.message || 'Ocorreu um erro no cadastro.');
+            const errorMsg = err.response?.data?.mensagem || err.message || 'Ocorreu um erro no cadastro.';
+            setMensagem(errorMsg);
+            setIsSuccess(false);
         }
     };
-    
+
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-4">
             <div className="w-full max-w-md p-8 space-y-6 bg-gray-900 rounded-xl shadow-lg border border-gray-700">
@@ -45,28 +53,33 @@ const Register = () => {
                     <h1 className="text-3xl font-bold text-center">Cadastro</h1>
                 </div>
 
-                {/* Mensagens de erro e sucesso */}
-                {error && <p className="text-red-500 bg-red-900/50 p-3 rounded-md text-center">{error}</p>}
-                {success && <p className="text-green-500 bg-green-900/50 p-3 rounded-md text-center">{success}</p>}
-                
                 {/* Formulário de registro */}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Campo usuário */}
                     <div>
                         <label htmlFor="username" className="block text-sm font-medium text-gray-300">Nome de Usuário</label>
-                        <input id="username" type="text" autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} required className="mt-1 block w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <input id="username" type="text" autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} onFocus={limparFeedback} required className={`mt-1 block w-full px-4 py-2 bg-gray-800 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${mensagem && !isSuccess ? 'border-red-500' : 'border-gray-600'}`} />
                     </div>
 
                     {/* Campo senha */}
                     <div>
                         <label htmlFor="password" className="block text-sm font-medium text-gray-300">Senha</label>
-                        <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="mt-1 block w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onFocus={limparFeedback} required className={`mt-1 block w-full px-4 py-2 bg-gray-800 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${mensagem && !isSuccess ? 'border-red-500' : 'border-gray-600'}`} />
                     </div>
 
                     {/* Campo confirmar senha */}
                     <div>
                         <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300">Confirmar Senha</label>
-                        <input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className="mt-1 block w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} onFocus={limparFeedback} required className={`mt-1 block w-full px-4 py-2 bg-gray-800 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${mensagem && !isSuccess ? 'border-red-500' : 'border-gray-600'}`} />
+                    </div>
+
+                    {/* Mensagens de erro e sucesso */}
+                    <div className="h-6 text-center">
+                        {mensagem && (
+                            <p className={`text-sm ${isSuccess ? 'text-green-500' : 'text-red-500'}`}>
+                                {mensagem}
+                            </p>
+                        )}
                     </div>
 
                     {/* Botão de cadastro com estado de carregamento */}
