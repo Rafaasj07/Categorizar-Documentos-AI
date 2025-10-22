@@ -11,7 +11,7 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     // Pega as informações do usuário salvas no localStorage.
-    const userInfo = localStorage.getItem('userInfo'); 
+    const userInfo = localStorage.getItem('userInfo');
     if (userInfo) {
       // O backend espera o token no objeto 'token', mas ao fazer o login, o token é salvo diretamente
       // no objeto 'userInfo'. A estrutura no localStorage é { _id, username, role, token }.

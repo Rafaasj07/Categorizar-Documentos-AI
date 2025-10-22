@@ -43,7 +43,7 @@ export const loginUser = async (req, res) => {
         }
 
         // Se a senha estiver correta, gera um token JWT com validade de 24 horas.
-        const token = jwt.sign({ id: user._id, role: user.role }, 'sua_chave_secreta_super_forte', {
+        const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
             expiresIn: '24h',
         });
 

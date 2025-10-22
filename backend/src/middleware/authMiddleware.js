@@ -11,17 +11,16 @@ const protect = async (req, res, next) => {
             // Extrai apenas a string do token, removendo o prefixo 'Bearer '.
             token = req.headers.authorization.split(' ')[1];
             // Decodifica e verifica a validade do token.
-            const decoded = jwt.verify(token, 'sua_chave_secreta_super_forte');
-
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
             // Busca o usuário correspondente ao ID do token no banco de dados.
             // O campo 'password' é omitido da resposta por segurança.
             req.user = await User.findById(decoded.id).select('-password');
-            
+
             // Confirma que o usuário do token ainda existe no sistema.
             if (!req.user) {
                 return res.status(401).json({ message: 'Não autorizado, usuário não encontrado.' });
             }
-            
+
             // Se a autenticação for bem-sucedida, passa para a próxima etapa da requisição.
             next();
         } catch (error) {

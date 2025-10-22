@@ -108,13 +108,15 @@ export const categorizarComArquivo = async (req, res) => {
         const textoParaAnalise = chunks[0];
 
         // 6. Monta a instrução (prompt) para a IA.
-        const { promptUsuario } = req.body;
         console.log("Buscando categorias existentes para o prompt...");
         const categoriasExistentes = await listarCategoriasUnicas();
         let instrucaoCategorias = "Como não há categorias preexistentes, crie uma nova categoria apropriada.";
         if (categoriasExistentes && categoriasExistentes.length > 0) {
             instrucaoCategorias = `Considere fortemente reutilizar uma das seguintes categorias existentes, se aplicável: [${categoriasExistentes.join(', ')}].`;
         }
+
+        // A instrução adicional do usuário (opcional)
+        const promptUsuario = req.body.promptUsuario || "Nenhuma";
 
         // O prompt é uma instrução detalhada que guia a IA para retornar um JSON estruturado.
         const promptFinal = `
