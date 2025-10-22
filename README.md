@@ -10,6 +10,12 @@
 | Gilvan | [GitHub ausente] |
 | Rafael Augusto | [@Rafaasj07](https://github.com/Rafaasj07) |
 
+## 🗂️ Artefatos (Drive)
+
+Todos os documentos, atas, diagramas e relatórios do grupo estão disponíveis no Google Drive oficial do projeto:
+
+🔗 **Acesse aqui:** [Pasta G01-GoLedger no Google Drive](https://drive.google.com/drive/folders/1lm-dzjdQkykmR-7wladXBhUGkrSa5wtj?usp=sharing)
+
 -----
 
 ## 📂 Visão Geral da Solução
