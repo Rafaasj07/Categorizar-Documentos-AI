@@ -1,40 +1,30 @@
 import mongoose from 'mongoose';
 
-// Define a estrutura para os metadados extraídos pela IA.
-const MetadadosSchema = new mongoose.Schema({
-    titulo: { type: String, default: null },
-    autor: { type: String, default: null },
-    data: { type: String, default: null },
-    palavrasChave: [{ type: String }],
-    resumo: { type: String, default: null }
-});
-
-// Define a estrutura para o resultado completo da análise da IA.
+// Define o Schema aninhado para o resultado da análise da IA.
 const ResultadoIaSchema = new mongoose.Schema({
     categoria: { type: String },
-    metadados: MetadadosSchema
-});
+    // Campo flexível (Mixed) para armazenar os metadados extraídos pela IA.
+    metadados: { type: mongoose.Schema.Types.Mixed, default: {} }
+}, { _id: false });
 
-// Define a estrutura principal para um documento.
+// Define o Schema principal para a coleção 'documentos'.
 const DocumentoSchema = new mongoose.Schema({
-    // Informações básicas e de armazenamento do arquivo.
     doc_uuid: { type: String, required: true, unique: true, index: true },
     minioKey: { type: String, required: true },
     bucketName: { type: String, required: true },
     fileName: { type: String, required: true },
     fileSize: { type: Number, required: true },
     contentType: { type: String },
-    userId: { type: String },
-    uploadedTimeStamp: { type: Date, default: Date.now },
-    
-    // Status do processo de análise (ex: 'PROCESSADO', 'FALHOU').
-    status: { type: String, enum: ['UPLOADED', 'PROCESSED', 'FAILED'], required: true },
-    
-    // Armazena o JSON completo retornado pela IA.
+    userId: { type: String, index: true },
+    uploadedTimeStamp: { type: Date, default: Date.now, index: true },
+
+    // Controla o status do processamento do documento (ex: 'PROCESSED', 'FAILED').
+    status: { type: String, enum: ['UPLOADED', 'PROCESSING', 'PROCESSED', 'FAILED'], required: true },
+
+    // Armazena o objeto completo (categoria e metadados) retornado pela IA.
     resultadoIa: ResultadoIaSchema
 });
 
-// Cria o "model" que será usado para interagir com a coleção de documentos no banco.
 const Documento = mongoose.model('Documento', DocumentoSchema);
 
 export default Documento;
