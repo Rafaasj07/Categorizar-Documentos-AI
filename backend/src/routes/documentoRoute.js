@@ -21,7 +21,7 @@ router.post('/categorizar-com-arquivo', protect, upload.single('arquivo'), categ
 router.get('/buscar', protect, buscarDocumentosController);
 
 // Rota para gerar um link de download. Acessível por qualquer usuário logado.
-router.get('/download', protect, downloadDocumentoController);
+router.post('/download', protect, downloadDocumentoController);
 
 // Rota para apagar documentos. Apenas para administradores.
 router.delete('/apagar', protect, admin, apagarDocumentoController);

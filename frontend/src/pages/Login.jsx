@@ -5,10 +5,10 @@ import icone from '../assets/icone.png';
 
 // Componente de página de login
 const Login = () => {
-    // Estado para armazenar credenciais e mensagens de erro
+    // Estado para armazenar credenciais e mensagens
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    const [mensagem, setMensagem] = useState(''); // Estado para a mensagem de feedback
     const { login, isAuthenticated, loading } = useAuth();
     const navigate = useNavigate();
 
@@ -18,15 +18,24 @@ const Login = () => {
             navigate('/');
         }
     }, [isAuthenticated, navigate]);
+    
+    // Limpa a mensagem de feedback ao focar em um input.
+    const limparFeedback = () => {
+        setMensagem('');
+    };
 
     // Submissão do formulário de login
-    const handleSubmit = async (e) => {
+   const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
+        limparFeedback();
         try {
-            await login(username, password); // Chama a função de login do contexto
+            await login(username, password);
+            // Se o login for bem-sucedido, a navegação ocorrerá pelo useEffect
         } catch (err) {
-            setError(err.message || 'Ocorreu um erro ao tentar fazer login.');
+            // Extrai a mensagem de erro da resposta da API, se disponível,
+            // caso contrário, usa a mensagem do objeto de erro.
+            const errorMsg = err.response?.data?.mensagem || err.message || 'Ocorreu um erro ao tentar fazer login.';
+            setMensagem(errorMsg);
         }
     };
 
@@ -39,21 +48,23 @@ const Login = () => {
                     <h1 className="text-3xl font-bold text-center">Login</h1>
                 </div>
 
-                {/* Exibição de erro caso ocorra falha no login */}
-                {error && <p className="text-red-500 bg-red-900/50 p-3 rounded-md text-center">{error}</p>}
-                
                 {/* Formulário de login */}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* Campo usuário */}
                     <div>
                         <label htmlFor="username" className="block text-sm font-medium text-gray-300">Nome de Usuário</label>
-                        <input id="username" type="text" value={username} autoComplete="off" onChange={(e) => setUsername(e.target.value)} required className="mt-1 block w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <input id="username" type="text" value={username} autoComplete="off" onChange={(e) => setUsername(e.target.value)} onFocus={limparFeedback} required className={`mt-1 block w-full px-4 py-2 bg-gray-800 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${mensagem ? 'border-red-500' : 'border-gray-600'}`} />
                     </div>
                     
                     {/* Campo senha */}
                     <div>
                         <label htmlFor="password" className="block text-sm font-medium text-gray-300">Senha</label>
-                        <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="mt-1 block w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" />
+                        <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onFocus={limparFeedback} required className={`mt-1 block w-full px-4 py-2 bg-gray-800 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${mensagem ? 'border-red-500' : 'border-gray-600'}`} />
+                    </div>
+
+                    {/* Exibição de erro caso ocorra falha no login */}
+                    <div className="h-6 text-center">
+                        {mensagem && <p className="text-red-500 text-sm">{mensagem}</p>}
                     </div>
 
                     {/* Botão de login com estado de carregamento */}

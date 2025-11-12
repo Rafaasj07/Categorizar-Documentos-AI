@@ -1,63 +1,56 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { apiRegister, apiLogin } from '../services/authService';
-import api from '../services/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+    // Gerencia o estado do usuário e o status de carregamento.
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // ao carregar a aplicação, recupera o usuário salvo no localStorage e restaura o token no header da API
+    // Ao iniciar a aplicação, verifica se há um usuário salvo no localStorage.
     useEffect(() => {
         const storedUser = localStorage.getItem('userInfo');
         if (storedUser) {
             const userData = JSON.parse(storedUser);
             setUser(userData);
-            api.defaults.headers.common['Authorization'] = `Bearer ${userData.token}`;
         }
         setLoading(false);
     }, []);
 
-    // autentica o usuário, salva os dados no localStorage e configura o token na API
+    // Função de login: chama a API, salva os dados no localStorage e atualiza o estado.
     const login = async (username, password) => {
         setLoading(true);
-        try {
-            const data = await apiLogin(username, password);
-            localStorage.setItem('userInfo', JSON.stringify(data));
-            setUser(data);
-            api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-        } catch (error) {
-            throw error;
-        } finally {
-            setLoading(false);
-        }
+        return apiLogin(username, password)
+            .then(data => {
+                localStorage.setItem('userInfo', JSON.stringify(data));
+                setUser(data);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
     };
 
-    // registra um novo usuário (sem salvar sessão automaticamente)
+    // Função de registro: chama a API de registro.
     const register = async (username, password) => {
         setLoading(true);
-        try {
-            await apiRegister(username, password);
-        } catch (error) {
-            throw error;
-        } finally {
-            setLoading(false);
-        }
+        return apiRegister(username, password)
+            .finally(() => {
+                setLoading(false);
+            });
     };
 
-    // limpa sessão do usuário e remove token do header da API
+    // Função de logout: remove os dados do localStorage e limpa o estado.
     const logout = () => {
-        setLoading(true); 
+        setLoading(true);
         setTimeout(() => {
             localStorage.removeItem('userInfo');
             setUser(null);
-            delete api.defaults.headers.common['Authorization'];
-            setLoading(false); 
+            setLoading(false);
         }, 500);
     };
 
-    // valores e funções expostos para toda a aplicação
+    // Objeto com os valores que serão compartilhados com os componentes da aplicação.
     const value = {
         user,
         isAuthenticated: !!user,
@@ -68,6 +61,7 @@ export const AuthProvider = ({ children }) => {
         logout
     };
 
+    // Disponibiliza o contexto de autenticação para os componentes filhos.
     return (
         <AuthContext.Provider value={value}>
             {children}
@@ -75,5 +69,4 @@ export const AuthProvider = ({ children }) => {
     );
 };
 
-// hook personalizado para acessar o contexto de autenticação
 export const useAuth = () => useContext(AuthContext);

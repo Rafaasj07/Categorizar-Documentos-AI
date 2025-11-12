@@ -1,44 +1,55 @@
 import { extrairTextoPdfComBiblioteca } from '../services/pdfjsService.js';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadParaMinIO } from '../services/minioService.js';
-import { registrarMetadados, atualizarMetadados, listarCategoriasUnicas } from '../services/mongoDbService.js';
-import { invocarOllama } from "../services/ollamaService.js";
+import { uploadParaMinIO, apagarDoMinIO } from '../services/minioService.js';
+import { registrarMetadados, atualizarMetadados } from '../services/mongoDbService.js';
+import { invocarIA } from "../services/openRouterService.js";
 import { extractTextFromImage } from '../services/ocrService.js';
+import Documento from '../models/Document.js';
 
-// --- Funções Auxiliares para tratar o texto extraído ---
+import { promptPadrao } from '../prompts/promptPadrao.js';
+import { promptNotaFiscal } from '../prompts/promptNotaFiscal.js';
+import { promptCartorio } from '../prompts/promptCartorio.js';
+import { promptSEI } from '../prompts/promptSEI.js';
+import { promptDiploma } from '../prompts/gestaoEducacional/promptDiploma.js';
+import { promptHistoricoEscolar } from '../prompts/gestaoEducacional/promptHistoricoEscolar.js';
+import { promptAtaResultados } from '../prompts/gestaoEducacional/promptAtaResultados.js';
+import { promptCertificado } from '../prompts/gestaoEducacional/promptCertificado.js';
+import { promptPlanoEnsino } from '../prompts/gestaoEducacional/promptPlanoEnsino.js';
+import { promptRegimentoInterno } from '../prompts/gestaoEducacional/promptRegimentoInterno.js';
+import { promptPortariaAto } from '../prompts/gestaoEducacional/promptPortariaAto.js';
+import { promptRegistroMatricula } from '../prompts/gestaoEducacional/promptRegistroMatricula.js';
+import { promptDocEducacionalGenerico } from '../prompts/gestaoEducacional/promptDocEducacionalGenerico.js';
 
-// Garante que o nome da categoria tenha um formato padrão (Ex: "Nota Fiscal").
+// Formata a string da categoria (Ex: "nota fiscal" -> "Nota Fiscal").
 const padronizarCategoria = (categoria) => {
     if (!categoria || typeof categoria !== 'string') return "Indefinida";
-    const partePrincipal = categoria.split('/')[0].trim();
-    return partePrincipal.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+    const partePrincipal = categoria.split(/[\/(]/)[0].trim();
+    return partePrincipal.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase())
+        .replace(/[^a-zA-Z0-9\sáéíóúâêîôûàèìòùãõçÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃÕÇ]+$/, '').trim();
 };
 
-// Define um tamanho máximo para os textos enviados à IA.
 const MAX_CHUNK_SIZE = 15000;
 
-// Divide textos muito longos em pedaços menores, se necessário.
+// Divide um texto longo em pedaços (chunks) de tamanho fixo.
 function criarChunks(texto) {
     if (!texto || texto.length <= MAX_CHUNK_SIZE) return [texto || ''];
     const chunks = [];
     for (let i = 0; i < texto.length; i += MAX_CHUNK_SIZE) {
         chunks.push(texto.substring(i, i + MAX_CHUNK_SIZE));
     }
+    console.log(`Texto dividido em ${chunks.length} chunks.`);
     return chunks;
 }
 
-// Remove linhas de texto duplicadas para limpar os dados antes da análise.
+// Remove linhas duplicadas ou vazias de um array de strings.
 function removerLinhasDuplicadas(linhas) {
-    if (!Array.isArray(linhas)) {
-        console.error('CRÍTICO: A função removerLinhasDuplicadas recebeu um valor que não é um array.');
-        return [];
-    }
+    if (!Array.isArray(linhas)) return [];
     const vistos = new Set();
     const resultado = [];
     for (const linha of linhas) {
         const linhaStr = String(linha || '').trim();
-        if (linhaStr) {
-            const linhaNormalizada = linhaStr.toLowerCase();
+        if (linhaStr && linhaStr.length > 1) {
+            const linhaNormalizada = linhaStr.toLowerCase().replace(/\s+/g, ' ');
             if (!vistos.has(linhaNormalizada)) {
                 vistos.add(linhaNormalizada);
                 resultado.push(linhaStr);
@@ -48,158 +59,173 @@ function removerLinhasDuplicadas(linhas) {
     return resultado;
 }
 
-// --- Controller Principal ---
-
-// Orquestra todo o processo de categorização de um arquivo.
+/**
+ * Processa o upload de um arquivo, extrai texto (PDF + OCR),
+ * envia para IA para categorização e salva o resultado.
+ */
 export const categorizarComArquivo = async (req, res) => {
-    // Gera um ID único para rastrear o documento durante o processo.
     const doc_uuid = uuidv4();
+    let minioInfo = null; 
+
     try {
+        // Valida se um arquivo foi realmente enviado na requisição.
         if (!req.file) {
             return res.status(400).json({ erro: 'Nenhum arquivo enviado.' });
         }
 
-        // 1. Salva o arquivo no serviço de armazenamento (MinIO).
-        const { minioKey, bucketName } = await uploadParaMinIO(req.file.buffer, req.file.originalname);
-        console.log(`Arquivo salvo no MinIO com a chave: ${minioKey}`);
+        const { contextoSelecionado, subContextoSelecionado, promptUsuario } = req.body;
+        const instrucaoUsuario = promptUsuario || "Nenhuma";
 
-        // 2. Salva as informações iniciais do arquivo no banco de dados.
-         const metadadosIniciais = { 
-            doc_uuid, 
-            minioKey, 
-            bucketName, 
-            fileName: req.file.originalname, 
-            fileSize: req.file.size, 
-            contentType: req.file.mimetype, 
-            userId: req.user.id,
-            uploadedTimeStamp: new Date(), 
-            status: "UPLOADED" 
+        let originalFilenameUtf8 = req.file.originalname;
+        // Tenta corrigir problemas de encoding no nome original do arquivo (Latin1 -> UTF-8).
+        try {
+            const regexEncodingIncorreto = /[ÃÂ][\u0080-\u00FF]/u; 
+
+            if (regexEncodingIncorreto.test(originalFilenameUtf8)) {
+                console.log(`[${doc_uuid}] Encoding incorreto detectado: ${originalFilenameUtf8}`);
+                originalFilenameUtf8 = Buffer.from(originalFilenameUtf8, 'latin1').toString('utf-8');
+                console.log(`[${doc_uuid}] Nome corrigido: ${originalFilenameUtf8}`);
+            }
+        } catch (encError) {
+            console.warn(`[${doc_uuid}] Falha ao corrigir encoding: ${encError.message}`);
+            originalFilenameUtf8 = req.file.originalname; 
+        }
+        // 1. Envia o buffer do arquivo para o MinIO (storage).
+        minioInfo = await uploadParaMinIO(req.file.buffer, originalFilenameUtf8); 
+        console.log(`[${doc_uuid}] Arquivo salvo no MinIO: ${minioInfo.minioKey}`);
+
+        // 2. Cria um registro inicial para o documento no MongoDB.
+        const metadadosIniciais = {
+            doc_uuid, minioKey: minioInfo.minioKey, bucketName: minioInfo.bucketName,
+            fileName: originalFilenameUtf8, 
+            fileSize: req.file.size, contentType: req.file.mimetype, userId: req.user.id,
+            uploadedTimeStamp: new Date(), status: "UPLOADED"
         };
         await registrarMetadados(metadadosIniciais);
+        console.log(`[${doc_uuid}] Metadados iniciais registrados.`);
 
-        // 3. Extrai o conteúdo do PDF, separando texto e imagens.
-        console.log("Iniciando extração de texto do PDF...");
+        // Define o status do documento como "em processamento".
+        await atualizarMetadados(doc_uuid, "PROCESSING", null);
+
+        // 3. Extrai texto e imagens (por página) do buffer do PDF.
+        console.log(`[${doc_uuid}] Extraindo conteúdo do PDF...`);
         const extracaoPorPagina = await extrairTextoPdfComBiblioteca(req.file.buffer);
+        console.log(`[${doc_uuid}] Extração PDF concluída (${extracaoPorPagina.length} pág).`);
 
-        // 4. Processa cada página: junta o texto e usa OCR para ler as imagens.
         let textoConsolidadoArray = [];
+        let contadorImagens = 0;
+        // 4. Itera sobre as páginas para processar imagens com OCR.
         for (const pagina of extracaoPorPagina) {
-            console.log(`- Processando Página ${pagina.pageNumber}/${extracaoPorPagina.length}...`);
-            if (pagina.embeddedText) {
-                textoConsolidadoArray.push(pagina.embeddedText);
-            }
+            if (pagina.embeddedText) textoConsolidadoArray.push(pagina.embeddedText);
+            // Verifica se a página contém imagens para OCR.
             if (pagina.images && pagina.images.length > 0) {
+                contadorImagens += pagina.images.length;
                 for (const imgBuffer of pagina.images) {
-                    const textoOcr = await extractTextFromImage(imgBuffer);
-                    if (textoOcr) {
-                        textoConsolidadoArray.push(textoOcr);
+                    try {
+                        // Extrai texto da imagem usando OCR.
+                        const textoOcr = await extractTextFromImage(imgBuffer);
+                        if (textoOcr) textoConsolidadoArray.push(textoOcr);
+                    } catch (ocrError) {
+                        console.error(`[${doc_uuid}] Erro OCR pág ${pagina.pageNumber}: ${ocrError.message}`);
                     }
                 }
             }
         }
-        console.log("Extração de texto concluída.");
+        console.log(`[${doc_uuid}] OCR concluído (${contadorImagens} imagens).`);
 
-        // 5. Limpa e prepara o texto final para a IA.
-        const textoBruto = textoConsolidadoArray.join(' ');
-        const linhasDoTexto = textoBruto.split('\n');
-        const linhasUnicas = removerLinhasDuplicadas(linhasDoTexto);
-        const textosLimpos = linhasUnicas.join(' ');
+        // 5. Limpa e consolida o texto extraído (PDF + OCR).
+        const textoBruto = textoConsolidadoArray.join('\n');
+        const linhasUnicas = removerLinhasDuplicadas(textoBruto.split('\n'));
+        const textosLimpos = linhasUnicas.join('\n');
+        // Divide o texto em chunks, caso seja muito longo.
         const chunks = criarChunks(textosLimpos);
-        const textoParaAnalise = chunks[0];
+        const textoParaAnalise = chunks[0]; 
+        console.log(`[${doc_uuid}] Texto preparado (${textoParaAnalise.length} chars).`);
 
-        // 6. Monta a instrução (prompt) para a IA.
-        const { promptUsuario } = req.body;
-        console.log("Buscando categorias existentes para o prompt...");
-        const categoriasExistentes = await listarCategoriasUnicas();
-        let instrucaoCategorias = "Como não há categorias preexistentes, crie uma nova categoria apropriada.";
-        if (categoriasExistentes && categoriasExistentes.length > 0) {
-            instrucaoCategorias = `Considere fortemente reutilizar uma das seguintes categorias existentes, se aplicável: [${categoriasExistentes.join(', ')}].`;
-        }
-        
-        // O prompt é uma instrução detalhada que guia a IA para retornar um JSON estruturado.
-        const promptFinal = `
-        Você é um analista de documentos sênior, especializado em extrair informações estruturadas de textos complexos com altíssima precisão.
-
-        Sua única tarefa é analisar o texto abaixo e retornar um objeto JSON.
-        A sua resposta DEVE ser APENAS o objeto JSON, sem nenhum texto, comentário ou explicação adicional.
-
-        Estrutura obrigatória do JSON:
-        {
-        "categoria": "...",
-        "metadados": {
-            "titulo": "...",
-            "autor": "...",
-            "data": "...",
-            "palavrasChave": [...],
-            "resumo": "..."
-        }
+        // Se o texto for muito curto, define como "Não Identificado" e encerra.
+        if (!textoParaAnalise || textoParaAnalise.length < 10) {
+            console.warn(`[${doc_uuid}] Texto muito curto. Classificando como 'Não Identificado'.`);
+            const resultadoPadrao = { /* ... objeto resultado ... */ };
+            resultadoPadrao.categoria = "Não Identificado";
+            resultadoPadrao.metadados = { /* ... campos null ou padrão ... */ };
+            resultadoPadrao.metadados.resumo_geral_ia = "Texto extraído insuficiente para análise.";
+            await atualizarMetadados(doc_uuid, "PROCESSED", resultadoPadrao);
+            return res.json(resultadoPadrao);
         }
 
-        REGRAS CRÍTICAS:
-        1. Estrutura Obrigatória: Você DEVE sempre retornar a estrutura JSON completa, incluindo o objeto "metadados" e todos os seus campos.
-        2. Tratamento de Campos Vazios: Se você não encontrar informação suficiente no texto para preencher um campo (como "titulo", "autor", "data", "resumo" ou "palavrasChave"), o valor desse campo DEVE ser null (sem aspas). 
-        - Se não houver palavras-chave, retorne um array vazio [].
-        - NÃO omita nenhum campo.
-        3. Categoria:
-        - Atribua a categoria mais específica possível.
-        - Use Title Case (Ex: "Contrato de Aluguel").
-        - ${instrucaoCategorias} 
-        - Se o texto for muito curto ou sem sentido para definir uma categoria, use "Não Identificado".
-        - Exemplos:
-            * Texto sobre aluguel de imóvel -> Categoria: "Contrato de Aluguel"
-            * Texto com consumo de energia elétrica -> Categoria: "Fatura de Energia"
-            * Texto detalhando a compra de produtos com impostos (ICMS, IPI) -> Categoria: "Nota Fiscal"
-            * Documento com atas de reunião corporativa -> Categoria: "Ata de Reunião"
-            * Texto apresentando resultados financeiros trimestrais de uma empresa -> Categoria: "Relatório Financeiro"
-        4. Extração de Metadados:
-        - resumo: Deve ser objetivo e capturar a essência do documento.
-        - data: Procure a data principal do documento.
-        - palavrasChave: Extraia até 5 termos relevantes.
-        - Se não encontrar valores, preencha com null (ou [] no caso de palavrasChave).
-        5. Instrução do Usuário: Considere esta instrução adicional: "${promptUsuario || "Nenhuma"}".
-        6. Ruído e Repetição: O texto pode conter muitas repetições ou ruídos do OCR. Ignore-os e foque na extração do conteúdo principal.
+        // 6. Seleciona o prompt da IA baseado no contexto/subcontexto da requisição.
+        console.log(`[${doc_uuid}] Contexto: ${contextoSelecionado || 'Padrão'}${subContextoSelecionado ? ` / ${subContextoSelecionado}` : ''}`);
+        let promptBase;
+        let categoriasExistentes = []; 
 
-        Exemplo de retorno para um texto de baixa qualidade:
-        {
-        "categoria": "Não Identificado",
-        "metadados": {
-            "titulo": null,
-            "autor": null,
-            "data": null,
-            "palavrasChave": [],
-            "resumo": "O texto fornecido era muito curto ou de baixa qualidade para permitir uma extração de metadados."
+        if (contextoSelecionado === 'Gestão Educacional') {
+            // Seleciona prompt específico para Gestão Educacional.
+            switch (subContextoSelecionado) { 
+                case 'Diploma': promptBase = promptDiploma; break;
+                case 'Histórico Escolar': promptBase = promptHistoricoEscolar; break;
+                case 'Ata de Resultados': promptBase = promptAtaResultados; break;
+                case 'Certificado': promptBase = promptCertificado; break;
+                case 'Plano de Ensino': promptBase = promptPlanoEnsino; break;
+                case 'Regimento Interno': promptBase = promptRegimentoInterno; break;
+                case 'Portaria ou Ato': promptBase = promptPortariaAto; break;
+                case 'Registro de Matrícula': promptBase = promptRegistroMatricula; break;
+                default: promptBase = promptDocEducacionalGenerico; break; 
+            }
+        } else { 
+            switch (contextoSelecionado) {
+                case 'Nota Fiscal': promptBase = promptNotaFiscal; break;
+                case 'Cartório': promptBase = promptCartorio; break;
+                case 'SEI': promptBase = promptSEI; break;
+                case 'Padrão':
+                default: 
+                    // Para o prompt Padrão, busca categorias já existentes no DB.
+                    try {
+                        // Busca categorias únicas para usar no prompt Padrão.
+                        categoriasExistentes = await Documento.distinct('resultadoIa.categoria').exec();
+                        categoriasExistentes = categoriasExistentes.filter(c => c && c !== 'Indefinida' && c !== 'Não Identificado');
+                    } catch (dbError) { /* Log erro */ }
+                    promptBase = promptPadrao;
+                    break;
+            }
         }
-        }
 
-        ---
-        Texto a ser Analisado:
-        """
-        ${textoParaAnalise}
-        """
-        ---
-        Lembre-se: sua resposta final deve ser apenas o JSON.
-        `;
+        // Monta o prompt final injetando o texto e instruções do usuário.
+        const promptFinal = typeof promptBase === 'function' 
+            ? promptBase.replace(/\$\{promptUsuario\}/g, instrucaoUsuario).replace(/\$\{categoriasExistentes\}/g, JSON.stringify(categoriasExistentes)).replace(/\$\{textoParaAnalise\}/g, textoParaAnalise)
+            : promptBase.replace(/\$\{promptUsuario\}/g, instrucaoUsuario).replace(/\$\{textoParaAnalise\}/g, textoParaAnalise);
 
-        // 7. Envia o prompt para o serviço da IA (Ollama).
-        console.log("Enviando texto para análise do Ollama...");
-        const respostaJson = await invocarOllama(promptFinal);
+        // 7. Envia o prompt final para o serviço da IA.
+        console.log(`[${doc_uuid}] Enviando para análise da IA...`);
+        const respostaJson = await invocarIA(promptFinal);
+        console.log(`[${doc_uuid}] Resposta da IA recebida.`);
 
-        // 8. Padroniza a categoria recebida da IA.
-        if (respostaJson.categoria) {
+        // 8. Padroniza a string da categoria retornada pela IA.
+        if (respostaJson && respostaJson.categoria) {
             respostaJson.categoria = padronizarCategoria(respostaJson.categoria);
+            console.log(`[${doc_uuid}] Categoria padronizada: ${respostaJson.categoria}`);
+        } else { 
+            // Se a IA falhar em retornar uma categoria, define como "Indefinida".
+            console.warn(`[${doc_uuid}] Categoria não retornada pela IA. Usando 'Indefinida'.`);
+            if (!respostaJson) respostaJson = { metadados: {} };
+            respostaJson.categoria = "Indefinida";
+            if (!respostaJson.metadados) respostaJson.metadados = {};
+            respostaJson.metadados.resumo_geral_ia = respostaJson.metadados.resumo_geral_ia || "A IA não determinou a categoria.";
         }
 
-        // 9. Atualiza o banco de dados com os resultados da análise.
+        // 9. Atualiza o MongoDB com o status "PROCESSED" e os resultados da IA.
         await atualizarMetadados(doc_uuid, "PROCESSED", respostaJson);
-        console.log("Metadados atualizados com sucesso no MongoDB.");
+        console.log(`[${doc_uuid}] Metadados atualizados como PROCESSED.`);
 
-        // 10. Retorna o JSON com a análise para o frontend.
+        // 10. Retorna o JSON da IA para o cliente.
         res.json(respostaJson);
 
-    } catch (error) {
-        // Se qualquer etapa falhar, registra o status de erro no banco.
-        console.error(`Erro no controller para o doc_uuid: ${doc_uuid}`, error);
-        await atualizarMetadados(doc_uuid, "FAILED", { erro: error.message });
-        res.status(500).json({ erro: 'Erro ao processar o arquivo com a IA.' });
+    } catch (error) { // Tratamento principal de erros do processo
+        console.error(`[${doc_uuid}] Erro GERAL no controller: ${error.message}`);
+        // Tenta marcar o documento como "FAILED" no DB
+        try { await atualizarMetadados(doc_uuid, "FAILED", { erro: error.message || "Erro desconhecido." }); } catch (dbError) { /* Log erro crítico */ }
+        // Se o upload no MinIO ocorreu, tenta reverter (apagar o arquivo).
+        if (minioInfo) { try { await apagarDoMinIO(minioInfo.bucketName, minioInfo.minioKey); } catch (minioError) { /* Log erro MinIO */ } }
+        // Retorna erro 500 (Internal Server Error) para o cliente.
+        res.status(500).json({ erro: `Erro ao processar o arquivo: ${error.message || 'Erro interno.'}` });
     }
 };
