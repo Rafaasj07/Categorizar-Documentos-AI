@@ -9,14 +9,17 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoadingSpinner from './components/LoadingSpinner';
 
-// Componente que gerencia a lógica de rotas e o estado de carregamento.
+/**
+ * Gerencia a exibição do conteúdo principal, rotas e o estado de
+ * carregamento inicial da aplicação.
+ */
 function AppContent() {
-  // Obtém o status de autenticação e o papel do usuário do contexto.
+  // Obtém o estado de autenticação e o papel do usuário.
   const { loading, isAuthenticated, userRole } = useAuth();
   // Controla a exibição do spinner apenas no carregamento inicial.
   const isInitialLoad = useRef(true);
 
-  // Marca que o carregamento inicial foi concluído.
+  // Marca que o carregamento inicial (verificação do token) foi concluído.
   if (!loading) {
     isInitialLoad.current = false;
   }
@@ -26,7 +29,10 @@ function AppContent() {
     return <LoadingSpinner />;
   }
 
-  // Componente para redirecionar o usuário com base no seu status de login e papel.
+  /**
+   * Componente que redireciona o usuário para a rota correta
+   * com base no seu status de login e papel.
+   */
   const RootRedirect = () => {
     // Se não estiver logado, vai para a página de login.
     if (!isAuthenticated) return <Navigate to="/login" />;
@@ -37,29 +43,32 @@ function AppContent() {
   // Define todas as rotas da aplicação.
   return (
     <Routes>
-      {/* Rotas públicas para login e registro, com redirecionamento se já estiver logado. */}
+      {/* Rotas públicas para login e registro */}
       <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
       <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/login" />} />
       
-      {/* Agrupa rotas protegidas para usuários comuns e administradores. */}
+      {/* Rotas protegidas para usuários comuns e administradores */}
       <Route element={<ProtectedRoute allowedRoles={['user', 'admin']} />}>
         <Route path="/categorizar" element={<Categorizar />} />
         <Route path="/buscar" element={<Buscar />} />
       </Route>
       
-      {/* Agrupa rotas protegidas exclusivas para administradores. */}
+      {/* Rotas protegidas exclusivas para administradores */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route path="/admin" element={<Admin />} />
       </Route>
       
-      {/* Rotas raiz e curinga que aplicam o redirecionamento principal. */}
+      {/* Rotas raiz e curinga que aplicam o redirecionamento principal */}
       <Route path="/" element={<RootRedirect />} />
       <Route path="*" element={<RootRedirect />} />
     </Routes>
   );
 }
 
-// Componente principal que envolve a aplicação com o roteador e o provedor de autenticação.
+/**
+ * Componente raiz que envolve a aplicação com o roteador
+ * e o provedor de contexto de autenticação.
+ */
 function App() {
   return (
     <BrowserRouter>

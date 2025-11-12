@@ -14,7 +14,7 @@ function Categorizar() {
 
   // Formata a string de progresso para permitir quebra de linha em nomes de arquivos longos.
   const renderProgresso = () => {
-    // Tenta extrair o nome do arquivo da string de progresso.
+    // Tenta extrair o nome do arquivo da string de progresso via regex.
     const match = progresso.match(/(Analisando \d+ de \d+: ")([^"]+)(")/);
 
     if (match) {
@@ -22,15 +22,14 @@ function Categorizar() {
       const nomeArquivo = match[2];
       const sufixo = match[3];
 
-      // Retorna JSX com o nome do arquivo dentro de um <span> para quebra de linha.
+      // Retorna JSX com o nome do arquivo em um span para permitir quebra de linha.
       return (
         <>
           {prefixo}<span className="break-all">{nomeArquivo}</span>{sufixo}
         </>
       );
     }
-
-    // Retorna a string de progresso original se não houver match.
+    // Retorna a string de progresso original se o regex não bater.
     return progresso;
   };
 
@@ -51,13 +50,13 @@ function Categorizar() {
           </div>
         )}
 
-        {/* Componente do formulário de upload de arquivos e seleção de contexto. */}
+        {/* Componente do formulário de upload e seleção de contexto. */}
         <FormularioDocumento
-          aoAnalisar={analisarDocumento}
+          aoAnalisar={analisarDocumento} // Passa a função de análise do hook.
           carregando={carregando}
         />
 
-        {/* Exibe a mensagem de progresso durante o carregamento (análise). */}
+        {/* Exibe a mensagem de progresso durante a análise. */}
         {carregando && progresso && (
           <div className="w-full max-w-3xl my-4 p-3 bg-blue-900/50 border border-blue-700 text-blue-200 rounded-lg text-center">
             <p className="flex items-center justify-center gap-2">
@@ -70,14 +69,15 @@ function Categorizar() {
         {documentosInfo.length > 0 && (
           <div className="space-y-6 mt-8">
             <h2 className="text-3xl font-bold text-center text-white">Resultados da Análise</h2>
+            
             {/* Itera sobre cada resultado e renderiza o componente InfoDocumento. */}
             {documentosInfo.map((info, index) => (
               <div key={index}>
                 <h3 className="text-xl font-semibold text-gray-300 mb-2 border-b border-gray-700 pb-1 break-all">
                   Arquivo: {info.nomeArquivo}
                 </h3>
-                {/* InfoDocumento decide qual card de detalhes exibir com base na categoria. */}
-                <InfoDocumento info={info} />
+                {/* O info.nomeArquivo está fora do 'doc' pois foi adicionado pelo hook */}
+                <InfoDocumento doc={info} />
               </div>
             ))}
           </div>
