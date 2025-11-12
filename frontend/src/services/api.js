@@ -7,8 +7,8 @@ const api = axios.create({
   baseURL: API_URL,
 });
 
-// Interceptor do axios que adiciona o token JWT (do localStorage)
-// ao cabeçalho 'Authorization' de todas as requisições enviadas.
+// Interceptor que adiciona o token JWT (do localStorage)
+// ao cabeçalho de autorização de todas as requisições.
 api.interceptors.request.use(
   (config) => {
     const userInfo = localStorage.getItem('userInfo');
@@ -28,8 +28,8 @@ api.interceptors.request.use(
 export default api; 
 
 /**
- * Envia um arquivo e seus metadados (contexto, subcontexto, prompt)
- * para a API de categorização usando FormData.
+ * Envia um arquivo e metadados (contexto, prompt) para a API
+ * de categorização usando FormData.
  * Retorna o JSON da análise da IA.
  */
 export const apiCategorizarComArquivo = async (contextoSelecionado, subContextoSelecionado, promptUsuario, arquivo) => {
@@ -37,7 +37,6 @@ export const apiCategorizarComArquivo = async (contextoSelecionado, subContextoS
   const formData = new FormData();
   formData.append('contextoSelecionado', contextoSelecionado); 
 
-  // Adiciona o subContexto ao FormData apenas se ele tiver um valor.
   if (subContextoSelecionado) {
     formData.append('subContextoSelecionado', subContextoSelecionado);
   }
@@ -46,9 +45,10 @@ export const apiCategorizarComArquivo = async (contextoSelecionado, subContextoS
   formData.append('arquivo', arquivo); 
 
   try {
+    // Realiza a requisição POST com o FormData.
     const response = await api.post('documento/categorizar-com-arquivo', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data', // Define o tipo de conteúdo
+        'Content-Type': 'multipart/form-data',
       },
     });
     return response.data; 
@@ -118,6 +118,58 @@ export const apiListarCategorias = async () => {
     return response.data;
   } catch (err) {
     console.error("Erro ao buscar categorias:", err);
+    throw err;
+  }
+};
+
+/**
+ * Envia um novo feedback (rating) para um documento.
+ */
+export const apiSubmitFeedback = async (doc_uuid, rating) => {
+    try {
+        const response = await api.post('feedback', { doc_uuid, rating });
+        return response.data;
+    } catch (err) {
+        console.error("Erro ao enviar feedback:", err);
+        throw err;
+    }
+};
+
+/**
+ * (Admin) Busca os dados de feedback (voto único) para um documento.
+ */
+export const apiGetFeedbackAggregate = async (doc_uuid) => {
+    try {
+        const response = await api.get(`feedback/${doc_uuid}`);
+        return response.data;
+    } catch (err) {
+        console.error("Erro ao buscar agregado de feedback:", err);
+        throw err;
+    }
+};
+
+/**
+ * Verifica se o usuário já votou em um documento específico.
+ */
+export const apiCheckUserFeedback = async (doc_uuid) => {
+    try {
+        const response = await api.get(`feedback/check/${doc_uuid}`);
+        return response.data; // Espera um objeto { hasVoted: boolean }
+    } catch (err) {
+        console.error("Erro ao verificar feedback:", err);
+        throw err;
+    }
+};
+
+/**
+ * (Admin) Atualiza os metadados (resultadoIa) de um documento.
+ */
+export const apiAtualizarMetadados = async (doc_uuid, novoResultadoIa) => {
+  try {
+    const response = await api.put(`documento/metadados/${doc_uuid}`, { novoResultadoIa });
+    return response.data;
+  } catch (err) {
+    console.error("Erro ao atualizar metadados:", err);
     throw err;
   }
 };

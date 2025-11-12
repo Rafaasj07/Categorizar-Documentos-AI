@@ -1,7 +1,7 @@
 import { extrairTextoPdfComBiblioteca } from '../services/pdfjsService.js';
 import { v4 as uuidv4 } from 'uuid';
 import { uploadParaMinIO, apagarDoMinIO } from '../services/minioService.js';
-import { registrarMetadados, atualizarMetadados } from '../services/mongoDbService.js';
+import { registrarMetadados, atualizarMetadados, atualizarApenasMetadadosIA } from '../services/mongoDbService.js';
 import { invocarIA } from "../services/openRouterService.js";
 import { extractTextFromImage } from '../services/ocrService.js';
 import Documento from '../models/Document.js';
@@ -48,6 +48,7 @@ function removerLinhasDuplicadas(linhas) {
     const resultado = [];
     for (const linha of linhas) {
         const linhaStr = String(linha || '').trim();
+        // Lógica para normalizar e verificar duplicatas
         if (linhaStr && linhaStr.length > 1) {
             const linhaNormalizada = linhaStr.toLowerCase().replace(/\s+/g, ' ');
             if (!vistos.has(linhaNormalizada)) {
@@ -80,7 +81,8 @@ export const categorizarComArquivo = async (req, res) => {
         // Tenta corrigir problemas de encoding no nome original do arquivo (Latin1 -> UTF-8).
         try {
             const regexEncodingIncorreto = /[ÃÂ][\u0080-\u00FF]/u; 
-
+            
+            // Detecta e corrige encoding Latin1 para UTF-8 no nome do arquivo.
             if (regexEncodingIncorreto.test(originalFilenameUtf8)) {
                 console.log(`[${doc_uuid}] Encoding incorreto detectado: ${originalFilenameUtf8}`);
                 originalFilenameUtf8 = Buffer.from(originalFilenameUtf8, 'latin1').toString('utf-8');
@@ -90,6 +92,7 @@ export const categorizarComArquivo = async (req, res) => {
             console.warn(`[${doc_uuid}] Falha ao corrigir encoding: ${encError.message}`);
             originalFilenameUtf8 = req.file.originalname; 
         }
+        
         // 1. Envia o buffer do arquivo para o MinIO (storage).
         minioInfo = await uploadParaMinIO(req.file.buffer, originalFilenameUtf8); 
         console.log(`[${doc_uuid}] Arquivo salvo no MinIO: ${minioInfo.minioKey}`);
@@ -114,9 +117,11 @@ export const categorizarComArquivo = async (req, res) => {
 
         let textoConsolidadoArray = [];
         let contadorImagens = 0;
+        
         // 4. Itera sobre as páginas para processar imagens com OCR.
         for (const pagina of extracaoPorPagina) {
             if (pagina.embeddedText) textoConsolidadoArray.push(pagina.embeddedText);
+            
             // Verifica se a página contém imagens para OCR.
             if (pagina.images && pagina.images.length > 0) {
                 contadorImagens += pagina.images.length;
@@ -137,20 +142,32 @@ export const categorizarComArquivo = async (req, res) => {
         const textoBruto = textoConsolidadoArray.join('\n');
         const linhasUnicas = removerLinhasDuplicadas(textoBruto.split('\n'));
         const textosLimpos = linhasUnicas.join('\n');
+        
         // Divide o texto em chunks, caso seja muito longo.
         const chunks = criarChunks(textosLimpos);
         const textoParaAnalise = chunks[0]; 
         console.log(`[${doc_uuid}] Texto preparado (${textoParaAnalise.length} chars).`);
 
-        // Se o texto for muito curto, define como "Não Identificado" e encerra.
+       // Se o texto for muito curto, define como "Não Identificado" e encerra.
         if (!textoParaAnalise || textoParaAnalise.length < 10) {
             console.warn(`[${doc_uuid}] Texto muito curto. Classificando como 'Não Identificado'.`);
-            const resultadoPadrao = { /* ... objeto resultado ... */ };
-            resultadoPadrao.categoria = "Não Identificado";
-            resultadoPadrao.metadados = { /* ... campos null ou padrão ... */ };
-            resultadoPadrao.metadados.resumo_geral_ia = "Texto extraído insuficiente para análise.";
+            
+            const resultadoPadrao = { 
+                categoria: "Não Identificado",
+                metadados: { 
+                    resumo_geral_ia: "Texto extraído insuficiente para análise." 
+                }
+            };
+            
+            // Atualiza o DB com o resultado padrão.
             await atualizarMetadados(doc_uuid, "PROCESSED", resultadoPadrao);
-            return res.json(resultadoPadrao);
+
+            const responseData = {
+                ...metadadosIniciais,
+                resultadoIa: resultadoPadrao,
+                status: "PROCESSED"
+            };
+            return res.json(responseData);
         }
 
         // 6. Seleciona o prompt da IA baseado no contexto/subcontexto da requisição.
@@ -158,6 +175,7 @@ export const categorizarComArquivo = async (req, res) => {
         let promptBase;
         let categoriasExistentes = []; 
 
+        // Lógica de seleção de prompt com base no contexto.
         if (contextoSelecionado === 'Gestão Educacional') {
             // Seleciona prompt específico para Gestão Educacional.
             switch (subContextoSelecionado) { 
@@ -172,13 +190,13 @@ export const categorizarComArquivo = async (req, res) => {
                 default: promptBase = promptDocEducacionalGenerico; break; 
             }
         } else { 
+            // Lógica para contextos gerais.
             switch (contextoSelecionado) {
                 case 'Nota Fiscal': promptBase = promptNotaFiscal; break;
                 case 'Cartório': promptBase = promptCartorio; break;
                 case 'SEI': promptBase = promptSEI; break;
                 case 'Padrão':
                 default: 
-                    // Para o prompt Padrão, busca categorias já existentes no DB.
                     try {
                         // Busca categorias únicas para usar no prompt Padrão.
                         categoriasExistentes = await Documento.distinct('resultadoIa.categoria').exec();
@@ -217,15 +235,48 @@ export const categorizarComArquivo = async (req, res) => {
         console.log(`[${doc_uuid}] Metadados atualizados como PROCESSED.`);
 
         // 10. Retorna o JSON da IA para o cliente.
-        res.json(respostaJson);
+        const responseData = {
+            ...metadadosIniciais,
+            resultadoIa: respostaJson,
+            status: "PROCESSED"
+        };
+        res.json(responseData); 
 
     } catch (error) { // Tratamento principal de erros do processo
         console.error(`[${doc_uuid}] Erro GERAL no controller: ${error.message}`);
         // Tenta marcar o documento como "FAILED" no DB
         try { await atualizarMetadados(doc_uuid, "FAILED", { erro: error.message || "Erro desconhecido." }); } catch (dbError) { /* Log erro crítico */ }
+        
         // Se o upload no MinIO ocorreu, tenta reverter (apagar o arquivo).
         if (minioInfo) { try { await apagarDoMinIO(minioInfo.bucketName, minioInfo.minioKey); } catch (minioError) { /* Log erro MinIO */ } }
+        
         // Retorna erro 500 (Internal Server Error) para o cliente.
         res.status(500).json({ erro: `Erro ao processar o arquivo: ${error.message || 'Erro interno.'}` });
+    }
+};
+
+/**
+ * Controller (Admin) para atualizar manualmente os metadados (resultadoIa) de um documento.
+ */
+export const atualizarMetadadosController = async (req, res) => {
+    const { doc_uuid } = req.params;
+    const { novoResultadoIa } = req.body; 
+
+    try {
+        // Valida se os dados necessários foram enviados.
+        if (!novoResultadoIa) {
+            return res.status(400).json({ erro: 'Dados de metadados ausentes.' });
+        }
+
+        // Chama o serviço que atualiza apenas o campo 'resultadoIa'.
+        await atualizarApenasMetadadosIA(doc_uuid, novoResultadoIa);
+        
+        console.log(`[${doc_uuid}] Metadados atualizados manualmente pelo Admin.`);
+        res.status(200).json({ mensagem: 'Metadados atualizados com sucesso.' });
+        
+    } catch (error) {
+        // Tratamento de erro geral do controller.
+        console.error(`[${doc_uuid}] Erro GERAL no controller de atualização: ${error.message}`);
+        res.status(500).json({ erro: `Erro ao atualizar metadados: ${error.message}` });
     }
 };

@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react';
 
-/**
- * Componente que renderiza o formulário de upload de arquivos,
- * seleção de contexto (e subcontexto) e instruções para a IA.
- */
 const FormularioDocumento = ({ aoAnalisar, carregando }) => {
   const [promptUsuario, setPromptUsuario] = useState('');
   const [arquivos, setArquivos] = useState([]);
@@ -161,10 +157,10 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
               <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-gray-400">▼</span>
             </div>
             <p className="text-gray-400 text-sm mt-1">Selecione o tipo mais próximo para maior precisão.</p>
-             {/* Mensagem de aviso se o subcontexto não for selecionado. */}
-             {!subContextoSelecionado && (
-                 <p className="text-yellow-400 text-sm mt-1">Por favor, selecione um tipo específico.</p>
-             )}
+              {/* Mensagem de aviso se o subcontexto não for selecionado. */}
+              {!subContextoSelecionado && (
+                  <p className="text-yellow-400 text-sm mt-1">Por favor, selecione um tipo específico.</p>
+              )}
           </div>
         )}
 
@@ -186,8 +182,7 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
         <div className="flex items-center justify-center mt-8">
           <button
             type="submit"
-            // Lógica para desabilitar o botão se estiver carregando, sem arquivos,
-            // com erro, ou se o subcontexto obrigatório não foi selecionado.
+            // Lógica para desabilitar o botão (carregando, sem arquivos, ou subcontexto faltando).
             disabled={
                 carregando ||
                 arquivos.length === 0 ||
