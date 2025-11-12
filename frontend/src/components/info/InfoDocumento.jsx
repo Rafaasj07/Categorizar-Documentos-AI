@@ -13,20 +13,33 @@ import InfoPortariaAto from './infoGestaoEducacional/InfoPortariaAto';
 import InfoRegistroMatricula from './infoGestaoEducacional/InfoRegistroMatricula';
 import InfoDocEducacionalGenerico from './infoGestaoEducacional/InfoDocEducacionalGenerico';
 
+import DocumentoAcoes from '../DocumentoAcoes'; 
+
 /**
- * Componente principal que atua como um "roteador" de exibição.
- * Ele decide qual componente de "Info" específico deve ser renderizado
- * com base na categoria do documento recebido.
+ * Componente "roteador" que decide qual componente "Info" (detalhes)
+ * deve ser exibido com base na categoria do documento.
  */
-const InfoDocumento = ({ info }) => {
-  // Retorna nulo se não houver dados de info ou categoria.
-  if (!info || !info.categoria) {
-    return null;
+const InfoDocumento = ({ doc, showDownloadOriginal = true, showFeedbackButton = true }) => {
+  // Se o documento ou o resultado da IA não estiverem disponíveis, exibe um fallback.
+  if (!doc || !doc.resultadoIa) {
+    return (
+      <div className="w-full max-w-3xl mt-6 p-6 bg-gray-800 border border-gray-700 rounded-2xl shadow-lg animate-fadeIn">
+        <p className="text-gray-400 p-4">
+          {doc ? "Metadados da IA não estão disponíveis." : "Nenhum documento selecionado."}
+        </p>
+        {/* Renderiza as ações (download) mesmo se a IA falhar */}
+        <DocumentoAcoes 
+          doc={doc} 
+          showDownloadOriginal={showDownloadOriginal} 
+          showFeedbackButton={showFeedbackButton} 
+        />
+      </div>
+    );
   }
 
-  const { categoria, metadados } = info;
+  const { categoria, metadados } = doc.resultadoIa;
 
-  // Função interna para selecionar o componente de detalhe correto.
+  // Função interna para selecionar o componente de exibição correto.
   const renderizarDetalhes = () => {
     if (!metadados) {
       return <p className="text-gray-400">Metadados não disponíveis.</p>;
@@ -34,14 +47,12 @@ const InfoDocumento = ({ info }) => {
 
     const categoriaNormalizada = categoria.toLowerCase();
 
-    // Bloco switch principal que mapeia a categoria da IA para um componente React.
+    // Utiliza um switch para rotear para o componente de exibição específico.
     switch (categoriaNormalizada) {
-      // Casos gerais
       case 'nota fiscal':
         return <InfoNotaFiscal metadados={metadados} />;
+      // Agrupamento de casos para "Cartório"
       case 'documento de cartório': 
-        return <InfoCartorio metadados={metadados} />;
-      // Subtipos específicos do Cartório
       case 'certidão de nascimento':
       case 'certidão de casamento':
       case 'certidão de óbito':
@@ -52,8 +63,7 @@ const InfoDocumento = ({ info }) => {
       case 'autenticação/reconhecimento':
       case 'outro ato cartorário':
           return <InfoCartorio metadados={metadados} />;
-
-      // Casos para SEI (todos usam o mesmo componente InfoSEI)
+      // Agrupamento de casos para "SEI"
       case 'ofício sei':
       case 'despacho sei':
       case 'memorando sei':
@@ -63,8 +73,7 @@ const InfoDocumento = ({ info }) => {
       case 'portaria sei':
       case 'outro documento sei':
         return <InfoSEI metadados={metadados} />;
-
-      // Casos específicos de Gestão Educacional
+      // Casos de Gestão Educacional
       case 'diploma':
         return <InfoDiploma metadados={metadados} />;
       case 'histórico escolar':
@@ -83,14 +92,12 @@ const InfoDocumento = ({ info }) => {
          return <InfoRegistroMatricula metadados={metadados} />;
       case 'documento educacional genérico':
          return <InfoDocEducacionalGenerico metadados={metadados} />;
-
-      // Casos de falha na identificação
+      // Tratamento de falhas da IA
       case 'não identificado':
         return <p className="text-yellow-400">{metadados?.resumo_geral_ia || metadados?.resumo || "Tipo não identificado."}</p>;
       case 'indefinida':
         return <p className="text-red-400">{metadados?.resumo_geral_ia || "Categoria indefinida."}</p>;
-
-      // Componente padrão (fallback) para categorias não mapeadas.
+      // Fallback para categorias desconhecidas
       default:
         console.warn(`Componente não encontrado para: ${categoria}. Usando InfoPadrao.`);
         return <InfoPadrao metadados={metadados} />;
@@ -99,25 +106,37 @@ const InfoDocumento = ({ info }) => {
 
   return (
     <div className="w-full max-w-3xl mt-6 p-6 bg-gray-800 border border-gray-700 rounded-2xl shadow-lg animate-fadeIn">
-      <h2 className="text-3xl font-bold text-white mb-4">Análise do Documento</h2>
+      {/* Cabeçalho de Categoria */}
       <div className="mb-6">
-        <h3 className="text-xl font-semibold text-indigo-400 mb-2">Categoria Identificada</h3>
-        <p className="text-lg text-gray-200 bg-gray-700 px-4 py-2 rounded-lg">{categoria}</p>
+        <h3 className="text-2xl font-bold text-indigo-400 mb-2">Categoria Identificada</h3>
+        <p className="text-2xl font-bold text-white bg-gray-700 px-4 py-3 rounded-lg text-center shadow-lg">
+          {categoria}
+        </p>
       </div>
+
+      {/* Corpo de Metadados */}
       <div>
-        <h3 className="text-xl font-semibold text-indigo-400 mb-3">Metadados Extraídos</h3>
+        <h3 className="text-2xl font-bold text-white mb-4">Metadados Extraídos</h3>
         <div className="space-y-3 text-gray-300">
-          {/* Renderiza o componente de detalhe escolhido pela função */}
+          {/* Renderiza o componente de detalhe escolhido pelo switch */}
           {renderizarDetalhes()}
           
-          {/* Renderiza o resumo geral da IA (se existir) no final de todos os cards. */}
+          {/* Renderiza o resumo geral da IA, se existir */}
           {metadados?.resumo_geral_ia && (
-            <p className="mt-4 pt-3 border-t border-gray-600">
-              <strong className="text-indigo-400">Resumo (IA):</strong> {metadados.resumo_geral_ia}
-            </p>
+            <div className="mt-4 pt-4 border-t border-gray-700">
+              <strong className="text-xl font-semibold text-white block mb-2">Resumo (IA):</strong>
+              <p className="text-gray-200">{metadados.resumo_geral_ia}</p>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Renderiza os botões de ação (Download, Feedback) */}
+      <DocumentoAcoes 
+        doc={doc} 
+        showDownloadOriginal={showDownloadOriginal} 
+        showFeedbackButton={showFeedbackButton}
+      />
     </div>
   );
 };

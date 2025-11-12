@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiBuscarDocumentos, apiDownloadDocumento } from '../services/api';
+import { apiBuscarDocumentos } from '../services/api';
 import NavPadrao from '../components/NavPadrao';
 import NavInferior from '../components/NavInferior';
 import Modal from '../components/Modal'; 
@@ -12,125 +12,100 @@ const Buscar = () => {
   const [resultados, setResultados] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
-  const [downloading, setDownloading] = useState(null);
   const [sortOrder, setSortOrder] = useState('desc');
-  const [pageTokens, setPageTokens] = useState([null]);
-  const [currentPage, setCurrentPage] = useState(0);
+  
+  const [pageTokens, setPageTokens] = useState([null]); 
+  const [currentPage, setCurrentPage] = useState(0); 
 
-  // Estados para controlar o modal de detalhes do documento.
   const [isModalOpen, setIsModalOpen] = useState(false); 
-  const [selectedDocInfo, setSelectedDocInfo] = useState(null); 
+  const [selectedDoc, setSelectedDoc] = useState(null); 
 
   /**
-   * Busca documentos na API com base nos filtros e token de paginação.
-   * @param {string|null} token - O token da página a ser buscada.
-   * @param {boolean} isNewSearch - Indica se a busca deve resetar a paginação.
+   * Função de busca (com useCallback) que chama a API 
+   * e gerencia os tokens de paginação.
    */
   const fetchDocumentos = useCallback(async (token, isNewSearch) => {
     setCarregando(true);
     setErro('');
     try {
       const params = { termo: termoBusca, sortOrder, limit: 10, nextToken: token };
-      // Chama a API e armazena os resultados completos.
+      // Chama a API de busca de documentos.
       const data = await apiBuscarDocumentos(params);
       setResultados(data.documentos || []);
 
-      // Gerencia os tokens de paginação para buscas novas ou contínuas.
+      // Gerencia os tokens de paginação.
       if (isNewSearch) {
+        // Reseta a paginação em uma nova busca (filtro ou termo).
         setPageTokens([null, data.nextToken]);
         setCurrentPage(0);
       } else if (data.nextToken && currentPage === pageTokens.length - 1) {
+        // Adiciona o token da próxima página ao avançar.
         setPageTokens(prev => [...prev, data.nextToken]);
       }
 
     } catch (err) {
       setErro('Falha ao carregar documentos.');
       setResultados([]);
+      // Reseta a paginação em caso de erro em uma nova busca.
        if (isNewSearch) { 
-          setPageTokens([null]);
-          setCurrentPage(0);
+         setPageTokens([null]);
+         setCurrentPage(0);
        }
     } finally {
       setCarregando(false);
     }
-  }, [termoBusca, sortOrder, currentPage, pageTokens.length]); 
+  }, [termoBusca, sortOrder, currentPage, pageTokens.length]); // Dependências do useCallback
 
-  // Efeito que dispara a busca (com debounce) quando o termo ou a ordenação mudam.
+  // Efeito que dispara a busca (com debounce) ao alterar termo ou ordenação.
   useEffect(() => {
-     // Busca inicial (sem debounce) ou ao limpar a busca.
+     // Busca imediata (sem debounce) se o campo for limpo.
      if (termoBusca === '') {
-         fetchDocumentos(null, true);
+       fetchDocumentos(null, true);
      }
-     // Define o debounce para o termo de busca.
+     
+     // Configura o debounce para buscas ao digitar.
      const handler = setTimeout(() => {
-         if (termoBusca !== '') {
-            // Executa a busca (resetando a página) após o delay.
-            fetchDocumentos(null, true);
-         }
+       if (termoBusca !== '') {
+          fetchDocumentos(null, true);
+       }
      }, DEBOUNCE_DELAY);
+     
+     // Limpa o timeout anterior.
      return () => clearTimeout(handler);
-  }, [termoBusca, sortOrder]); 
+  }, [termoBusca, sortOrder]); // Re-executa se o termo ou a ordem mudarem.
 
-  // Inicia o download de um documento.
-  const handleDownload = async (doc, event) => {
-    event.stopPropagation(); // Impede que o clique no botão abra o modal.
-    setDownloading(doc.doc_uuid);
-    try {
-      // Chama a API de download e cria um link temporário para baixar o blob.
-      const blob = await apiDownloadDocumento(doc);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', doc.fileName);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      setErro('Não foi possível realizar o download.');
-    } finally {
-      setDownloading(null);
-    }
-  };
-
-
-  /**
-   * Abre o modal e define os dados do documento selecionado.
-   * @param {object} doc - O objeto completo do documento clicado.
-   */
+  // Abre o modal e define o documento selecionado.
   const handleOpenModal = (doc) => {
-    // Verifica se os metadados da IA existem antes de abrir.
-    if (doc.resultadoIa && doc.resultadoIa.metadados) { 
-      setSelectedDocInfo({
-          ...doc.resultadoIa, 
-          nomeArquivo: doc.fileName 
-      });
+    if (doc) { 
+      setSelectedDoc(doc); 
       setIsModalOpen(true); 
     } else {
-      console.warn("Documento sem metadados completos:", doc);
-      setErro("Detalhes completos não disponíveis para este documento."); 
+      console.warn("Tentativa de abrir modal com documento nulo.");
+      setErro("Não foi possível carregar os detalhes do documento."); 
     }
   };
 
-  // Fecha o modal e limpa o estado do documento selecionado.
+  // Fecha o modal de detalhes.
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setSelectedDocInfo(null);
+    setSelectedDoc(null);
   };
 
   // Funções de navegação da paginação.
   const handleNextPage = () => { 
-      const nextPage = currentPage + 1;
-     if (nextPage < pageTokens.length && !carregando) {
-         setCurrentPage(nextPage);
-         fetchDocumentos(pageTokens[nextPage], false);
-     }
+     const nextPage = currentPage + 1;
+     // Verifica se o token da próxima página já existe e não está carregando.
+    if (nextPage < pageTokens.length && !carregando) {
+       setCurrentPage(nextPage);
+       fetchDocumentos(pageTokens[nextPage], false); 
+    }
   };
   const handlePreviousPage = () => { 
+     // Verifica se não está na primeira página e não está carregando.
      if (currentPage > 0 && !carregando) {
-         const prevPage = currentPage - 1;
-         setCurrentPage(prevPage);
-         fetchDocumentos(pageTokens[prevPage], false);
+       const prevPage = currentPage - 1;
+       setCurrentPage(prevPage);
+       fetchDocumentos(pageTokens[prevPage], false); 
      }
   };
 
@@ -148,7 +123,7 @@ const Buscar = () => {
           Buscar Documentos
         </h1>
 
-        {/* Barra de filtros (Busca por termo e Ordenação) */}
+        {/* Barra de filtros (Busca e Ordenação) */}
         <div className="flex flex-col md:flex-row gap-2 mb-8">
           <input
             type="text"
@@ -176,34 +151,20 @@ const Buscar = () => {
 
         {/* Container da lista de resultados */}
         <div className="space-y-4">
-          {/* Feedback de carregamento */}
+          {/* Estados de loading ou "sem resultados" */}
           {carregando && <p className="text-gray-400 text-center py-8">Carregando...</p>}
-
-          {/* Feedback de "Nenhum resultado" */}
           {!carregando && resultados.length === 0 && (
             <p className="text-gray-500 text-center py-8">Nenhum documento encontrado.</p>
           )}
 
           {/* Mapeia e renderiza os cards de resultado */}
           {resultados.map((doc) => (
-            // O card inteiro é clicável para abrir o modal de detalhes.
+            // Card clicável para abrir o modal
             <div
               key={doc.doc_uuid}
               className="relative bg-gray-800 p-4 rounded-lg border border-gray-700 transition-transform hover:scale-[1.02] duration-300 cursor-pointer" 
-              onClick={() => handleOpenModal(doc)} // Define o clique para abrir o modal
+              onClick={() => handleOpenModal(doc)} 
             >
-              {/* Botão de Download (com stopPropagation) */}
-              <button
-                onClick={(e) => handleDownload(doc, e)} // Impede o clique de abrir o modal
-                disabled={downloading === doc.doc_uuid}
-                className="absolute top-4 right-4 text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-wait z-10" 
-                title="Baixar documento"
-              >
-                {/* Mostra spinner durante o download */}
-                {downloading === doc.doc_uuid ? <i className="bx bx-loader-alt animate-spin text-2xl"></i> : <i className="bx bxs-download text-2xl"></i>}
-              </button>
-
-              {/* Informações do card */}
               <h3 className="text-xl font-bold text-indigo-400 pr-10 break-all">{doc.fileName}</h3>
               <p className="text-sm text-gray-400 mb-2">
                 Categoria: <span className="font-semibold">{doc.resultadoIa?.categoria || 'N/A'}</span>
@@ -233,10 +194,14 @@ const Buscar = () => {
       </div>
 
       {/* Renderização do Modal de Detalhes */}
-      {/* O modal só é renderizado quando 'isModalOpen' é true */}
-      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={`Detalhes: ${selectedDocInfo?.nomeArquivo || ''}`}>
-          {/* Passa os dados do documento selecionado para o InfoDocumento */}
-          {selectedDocInfo && <InfoDocumento info={selectedDocInfo} />}
+      <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={`Detalhes: ${selectedDoc?.fileName || ''}`}>
+          {selectedDoc ? (
+            <InfoDocumento doc={selectedDoc} />
+          ) : (
+            <p className="text-gray-400 p-4">
+              Nenhum documento selecionado.
+            </p>
+          )}
       </Modal>
 
     </div>
