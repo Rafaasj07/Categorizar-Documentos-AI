@@ -1,11 +1,7 @@
 import { renderField, formatDate } from '../../../utils/renderUtils';
 
-/**
- * Componente React para exibir os metadados específicos
- * de um documento do tipo "Histórico Escolar".
- */
+// Exibe metadados específicos de documentos do tipo Histórico Escolar
 const InfoHistoricoEscolar = ({ metadados }) => {
-  // Retorna uma mensagem padrão se não houver metadados.
   if (!metadados) return <p className="text-gray-500">Nenhum metadado extraído.</p>;
 
   const {
@@ -14,7 +10,6 @@ const InfoHistoricoEscolar = ({ metadados }) => {
   } = metadados;
 
   return (
-    // Renderiza os campos de metadados usando um utilitário.
     <div className="space-y-3 text-sm">
       {renderField('Instituição', instituicao)}
       {renderField('Aluno', aluno)}

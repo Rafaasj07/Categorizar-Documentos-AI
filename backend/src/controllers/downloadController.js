@@ -1,6 +1,6 @@
 import { getObjectStreamFromMinIO } from '../services/minioService.js';
 
-// Função que lida com a requisição para baixar o arquivo.
+// Gerencia requisição de download transmitindo arquivo do MinIO via stream
 export const downloadDocumentoController = async (req, res) => {
     try {
         const { bucketName, minioKey, fileName } = req.body;
@@ -9,14 +9,13 @@ export const downloadDocumentoController = async (req, res) => {
             return res.status(400).json({ erro: 'Informações insuficientes para o download.' });
         }
 
-        // Busca o stream do objeto no MinIO.
+        // Obtém stream do objeto diretamente do serviço de storage
         const stream = await getObjectStreamFromMinIO(bucketName, minioKey);
 
-        // Define os cabeçalhos para forçar o download no navegador.
+        // Configura headers para forçar download e inicia streaming da resposta
         res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
         res.setHeader('Content-Type', 'application/octet-stream');
 
-        // Envia o stream do arquivo como resposta.
         stream.pipe(res);
 
     } catch (error) {

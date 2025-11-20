@@ -1,18 +1,12 @@
 import { renderField, formatDate } from '../../utils/renderUtils';
 
-/**
- * Componente React para exibir os metadados específicos
- * de um documento do tipo "Cartório".
- */
+// Exibe metadados específicos de documentos de Cartório
 const InfoCartorio = ({ metadados }) => {
-  // Retorna uma mensagem padrão se não houver metadados.
   if (!metadados) return <p className="text-gray-500">Nenhum metadado extraído.</p>;
 
-  // Desestrutura os metadados para facilitar o acesso.
   const { tipo_ato, cartorio_responsavel, partes_envolvidas, dados_imovel, ...resto } = metadados;
 
   return (
-    // Renderiza os campos de metadados usando um utilitário.
     <div className="space-y-3 text-sm">
       {renderField('Tipo de Ato', tipo_ato)}
       {renderField('Cartório Responsável', cartorio_responsavel)}

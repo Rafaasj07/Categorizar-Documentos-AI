@@ -1,11 +1,7 @@
 import { renderField, formatDate } from '../../../utils/renderUtils';
 
-/**
- * Componente React para exibir os metadados específicos
- * de um documento do tipo "Plano de Ensino".
- */
+// Exibe metadados específicos de documentos do tipo Plano de Ensino
 const InfoPlanoEnsino = ({ metadados }) => {
-  // Retorna uma mensagem padrão se não houver metadados.
   if (!metadados) return <p className="text-gray-500">Nenhum metadado extraído.</p>;
 
   const {
@@ -16,7 +12,6 @@ const InfoPlanoEnsino = ({ metadados }) => {
   } = metadados;
 
   return (
-    // Renderiza os campos de metadados usando um utilitário.
     <div className="space-y-3 text-sm">
       {renderField('Instituição', instituicao)}
       {renderField('Disciplina', disciplina)}

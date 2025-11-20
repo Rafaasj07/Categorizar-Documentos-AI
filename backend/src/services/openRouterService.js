@@ -1,54 +1,60 @@
 import axios from 'axios';
 import { extrairJson } from '../utils/jsonValidator.js';
 
-// URL da API OpenRouter e chave de acesso (das variáveis de ambiente).
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
-// Envia o prompt para a IA da OpenRouter e processa a resposta.
-export async function invocarIA(prompt) {
-    try {
-        console.log("Invocando a API da OpenRouter...");
+// Realiza chamada à API OpenRouter com mecanismo de retry automático
+export async function invocarIA(prompt, tentativasMaximas = 3) {
+    let tentativaAtual = 0;
 
-        // Monta o corpo da requisição com o modelo, prompt e formato desejado.
-        const payload = {
-            model: "mistralai/mistral-7b-instruct:free", // Modelo ultilizado
-            messages: [
-                {
-                    role: "system",
-                    content: "Você é um analista de documentos sênior, especializado em extrair informações estruturadas de textos complexos com altíssima precisão."
-                },
-                {
-                    role: "user",
-                    content: prompt // O prompt final do controller
+    // Loop de tentativas para garantir resiliência a falhas
+    while (tentativaAtual < tentativasMaximas) {
+        tentativaAtual++;
+        try {
+            console.log(`Invocando API OpenRouter (Tentativa ${tentativaAtual}/${tentativasMaximas})...`);
+
+            const payload = {
+                model: "mistralai/mistral-7b-instruct:free", 
+                messages: [
+                    {
+                        role: "system",
+                        content: "Você é um analista de documentos sênior, especializado em extrair informações estruturadas de textos complexos com altíssima precisão."
+                    },
+                    {
+                        role: "user",
+                        content: prompt 
+                    }
+                ],
+                response_format: { type: "json_object" }, 
+            };
+
+            // Executa requisição POST autenticada
+            const response = await axios.post(OPENROUTER_API_URL, payload, {
+                headers: {
+                    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                    'Content-Type': 'application/json'
                 }
-            ],
-            response_format: { type: "json_object" }, // Garante que a IA retorne um JSON válido.
-        };
+            });
 
-        // Envia a requisição para a API da OpenRouter com autenticação.
-        const response = await axios.post(OPENROUTER_API_URL, payload, {
-            headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json'
+            const textoResposta = response.data.choices[0].message.content;
+            console.log("Resposta da IA recebida.");
+
+            return extrairJson(textoResposta);
+
+        } catch (error) {
+            console.error(`Erro OpenRouter (Tentativa ${tentativaAtual}):`, error.message);
+            if (error.response) {
+                console.error("Detalhes do erro:", error.response.data);
             }
-        });
 
-        const textoResposta = response.data.choices[0].message.content;
+            // Lança exceção se o limite de tentativas for excedido
+            if (tentativaAtual >= tentativasMaximas) {
+                throw new Error("Não foi possível obter resposta da IA após várias tentativas.");
+            }
 
-        console.log("--- Resposta Bruta da OpenRouter (Antes de extrair JSON) ---");
-        console.log(textoResposta);
-        console.log("-------------------------------------------------------");
-
-        // Extrai e valida o JSON da resposta de texto da IA.
-        return extrairJson(textoResposta);
-
-    } catch (error) {
-        // Em caso de erro, exibe detalhes e lança uma exceção.
-        console.error("Erro no serviço OpenRouter:", error.message);
-        if (error.response) {
-            console.error("Dados do erro:", error.response.data);
+            // Aplica delay de 2 segundos antes da próxima tentativa
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
-        throw new Error("Não foi possível obter uma resposta válida do serviço de IA.");
     }
 }

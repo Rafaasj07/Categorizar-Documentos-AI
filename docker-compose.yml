@@ -1,58 +1,49 @@
-# Define a coleção de serviços que compõem a aplicação.
 services:
-  # Serviço do backend (API Node.js).
+  # Backend Node.js com build local
   backend:
-    # Constrói a imagem Docker a partir do diretório 'backend'.
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: categorizador_backend
-    # Mapeia a porta 3001 do contêiner para a porta 3001 da máquina local.
     ports:
       - "3001:3001"
-    # Mapeia o código-fonte para dentro do contêiner, permitindo hot-reload.
-    # A pasta 'node_modules' é isolada para evitar conflitos com o ambiente local.
+    # Mapeamento para hot-reload e isolamento de dependências
     volumes:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
-    # Carrega as variáveis de ambiente a partir do arquivo .env do backend.
     env_file:
       - ./backend/.env
-    # Garante que o serviço do backend só inicie depois que o MongoDB estiver saudável.
+    # Aguarda o MongoDB estar pronto antes de iniciar
     depends_on:
       mongo:
         condition: service_healthy
 
-  # Serviço do MinIO, usado para armazenamento de arquivos (como um S3 local).
+  # Serviço de armazenamento de objetos (MinIO)
   minio:
     image: minio/minio
     container_name: minio
-    # Mapeia a porta da API (9000) e da interface web (9001) do MinIO.
+    # Portas da API (9000) e Console Web (9001)
     ports:
       - "9000:9000"
       - "9001:9001"
-    # Garante que os dados do MinIO persistam mesmo se o contêiner for recriado.
     volumes:
       - minio-data:/data
-    # Define as credenciais de administrador e a URL do servidor.
+    # Configuração de credenciais administrativas
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
       MINIO_SERVER_URL: http://localhost:9000
-    # Comando para iniciar o servidor MinIO e habilitar sua interface web na porta 9001.
     command: server /data --console-address ":9001"
 
-  # Serviço do banco de dados MongoDB.
+  # Banco de dados MongoDB
   mongo:
     image: mongo:latest
     container_name: mongo
-    # Mapeia a porta padrão do MongoDB.
     ports:
       - "27017:27017"
-    # Garante que os dados do banco persistam.
     volumes:
       - mongo-data:/data/db
-    # Define uma verificação de saúde para confirmar que o banco está pronto para receber conexões.
+    # Healthcheck para garantir disponibilidade do banco
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
       interval: 10s
@@ -60,7 +51,7 @@ services:
       retries: 5
       start_period: 40s
 
-# Declara os volumes nomeados para garantir a persistência dos dados.
+# Volumes persistentes para dados
 volumes:
   minio-data:
   mongo-data:

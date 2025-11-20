@@ -4,8 +4,7 @@ import * as Minio from 'minio';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 
-// Configura a conexão com o container do MinIO no Docker.
-// Este cliente único é o correto para todas as operações.
+// Configura cliente MinIO utilizando variáveis de ambiente
 const minioClient = new Minio.Client({
     endPoint: process.env.MINIO_ENDPOINT,
     port: parseInt(process.env.MINIO_PORT, 10), 
@@ -15,7 +14,7 @@ const minioClient = new Minio.Client({
 });
 
 
-// Envia um arquivo para o armazenamento.
+// Realiza upload do arquivo gerando chave única no bucket
 export async function uploadParaMinIO(fileBuffer, originalName) {
     const fileExtension = path.extname(originalName);
     const minioKey = `documentos/${uuidv4()}${fileExtension}`;
@@ -33,7 +32,7 @@ export async function uploadParaMinIO(fileBuffer, originalName) {
     }
 }
 
-// Apaga um arquivo do armazenamento no MinIO.
+// Remove o objeto especificado do bucket
 export async function apagarDoMinIO(bucketName, minioKey) {
     try {
         await minioClient.removeObject(bucketName, minioKey);
@@ -44,7 +43,7 @@ export async function apagarDoMinIO(bucketName, minioKey) {
     }
 }
 
-// Verifica se o bucket de armazenamento existe e, se não, o cria.
+// Garante a existência do bucket criando-o se necessário
 export async function criarBucketSeNaoExistir() {
     const bucketName = process.env.MINIO_BUCKET_NAME;
     try {
@@ -61,7 +60,7 @@ export async function criarBucketSeNaoExistir() {
     }
 }
 
-// Busca um arquivo do MinIO e o retorna como um stream legível.
+// Obtém e retorna o stream de leitura do arquivo
 export async function getObjectStreamFromMinIO(bucketName, minioKey) {
     try {
         const stream = await minioClient.getObject(bucketName, minioKey);
