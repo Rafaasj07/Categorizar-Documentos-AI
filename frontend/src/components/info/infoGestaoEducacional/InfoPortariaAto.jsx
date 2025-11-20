@@ -1,12 +1,7 @@
-// frontend/src/components/info/infoGestaoEducacional/InfoPortariaAto.jsx
 import { renderField } from '../../../utils/renderUtils';
 
-/**
- * Componente React para exibir os metadados específicos
- * de um documento do tipo "Portaria ou Ato".
- */
+// Exibe metadados específicos de documentos do tipo Portaria ou Ato
 const InfoPortariaAto = ({ metadados }) => {
-  // Retorna uma mensagem padrão se não houver metadados.
   if (!metadados) return <p className="text-gray-500">Nenhum metadado extraído.</p>;
 
   const {
@@ -17,7 +12,6 @@ const InfoPortariaAto = ({ metadados }) => {
   } = metadados;
 
   return (
-    // Renderiza os campos de metadados usando um utilitário.
     <div className="space-y-3 text-sm">
       {renderField('Identificação do Ato', identificacao_ato)}
       {renderField('Instituição', instituicao)}

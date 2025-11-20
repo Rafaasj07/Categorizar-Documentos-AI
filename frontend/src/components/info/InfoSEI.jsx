@@ -1,16 +1,12 @@
 import { renderField, formatDate } from '../../utils/renderUtils';
 
-/**
- * Componente React para exibir os metadados específicos
- * de um documento do tipo "SEI".
- */
+// Exibe metadados específicos de documentos SEI, incluindo validação de autenticidade
 const InfoSEI = ({ metadados }) => {
-  // Retorna uma mensagem padrão se não houver metadados.
   if (!metadados) return <p className="text-gray-500">Nenhum metadado extraído.</p>;
 
   const { tipo_documento_sei, signatarios, url_verificacao, codigo_verificador, codigo_crc, ...resto } = metadados;
 
-  // Verifica se existe algum dado de autenticidade para exibir o bloco.
+  // Verifica se existem dados suficientes para renderizar o bloco de autenticidade
   const hasAutenticidade = url_verificacao || codigo_verificador || codigo_crc;
 
   return (
@@ -27,11 +23,10 @@ const InfoSEI = ({ metadados }) => {
       {renderField('Signatarios', signatarios)}
       {renderField('Referência', resto.referencia)}
 
-      {/* Renderiza o bloco de autenticidade apenas se os dados existirem */}
       {hasAutenticidade && (
           <div className="mt-2 pt-2 border-t border-gray-600">
               <strong className="text-indigo-400 block mb-1">Autenticidade:</strong>
-              {/* Renderiza o link de verificação online apenas se a URL for válida */}
+              {/* Renderiza link de verificação apenas se a URL for válida e segura */}
               {url_verificacao && url_verificacao !== 'null' && url_verificacao.startsWith('http') ? (
                   <p className="mb-1 break-words">
                       <strong className="text-gray-400">Verificação:</strong>

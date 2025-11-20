@@ -26,7 +26,7 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
     { value: 'Outro', label: 'Outro / Não sei (Genérico)' }
   ];
 
-  // Efeito para limpar o subcontexto se o contexto principal mudar.
+  // Reseta o subcontexto quando a categoria principal muda para evitar inconsistências
   useEffect(() => {
     if (contextoSelecionado !== 'Gestão Educacional') {
       setSubContextoSelecionado(''); 
@@ -35,7 +35,7 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
     }
   }, [contextoSelecionado]);
 
-  // Valida os arquivos selecionados (quantidade e tamanho).
+  // Valida quantidade e tamanho dos arquivos, atualizando estados ou definindo erros
   const aoMudarArquivo = (evento) => {
     const files = evento.target.files;
     setArquivos([]);
@@ -43,7 +43,6 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
     setArquivoErro('');
     if (!files || files.length === 0) return;
 
-    // Validação da quantidade máxima de arquivos.
     if (files.length > MAXIMO_ARQUIVOS) {
       setArquivoErro(`Selecione no máximo ${MAXIMO_ARQUIVOS} arquivos.`);
       evento.target.value = ''; 
@@ -54,7 +53,7 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
     const nomesValidos = [];
     let erroEncontrado = '';
 
-    // Loop para validar o tamanho de cada arquivo individualmente.
+    // Itera para verificar tamanho individual de cada arquivo
     for (const file of files) {
       if (file.size > TAMANHO_MAXIMO_EM_BYTES) {
         const tamanhoEmMb = (TAMANHO_MAXIMO_EM_BYTES / (1024 * 1024)).toFixed(1);
@@ -65,7 +64,6 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
       nomesValidos.push(file.name);
     }
 
-    // Atualiza os estados de arquivos ou exibe o erro encontrado.
     if (erroEncontrado) {
       setArquivoErro(erroEncontrado);
       evento.target.value = ''; 
@@ -75,10 +73,9 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
     }
   };
 
-  // Envia os dados do formulário para a função de análise (prop).
+  // Envia dados validados para função de callback pai
   const aoSubmeter = (evento) => {
     evento.preventDefault();
-    // Chama a prop 'aoAnalisar' com todos os dados do formulário.
     aoAnalisar(contextoSelecionado, subContextoSelecionado, promptUsuario, arquivos);
   };
 
@@ -86,7 +83,6 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
     <div className="w-full max-w-3xl px-4 rounded-lg mb-8">
       <form onSubmit={aoSubmeter}>
 
-        {/* Seção 1: Upload de Arquivos */}
         <div className="mb-6">
           <label htmlFor="arquivo" className="block text-gray-300 text-lg font-semibold mb-2">
             1. Envie até 10 PDFs (Máx: 5MB cada)
@@ -96,7 +92,6 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
             onChange={aoMudarArquivo} disabled={carregando} multiple
             className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600 cursor-pointer"
           />
-          {/* Mostra a lista de arquivos selecionados e validados. */}
           {nomesArquivos.length > 0 && (
             <div className="text-green-400 text-sm mt-2">
               <p>{nomesArquivos.length} arquivo(s) selecionado(s):</p>
@@ -107,11 +102,9 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
               </ul>
             </div>
           )}
-          {/* Mostra mensagem de erro na validação dos arquivos. */}
           {arquivoErro && <p className="text-red-500 text-sm mt-2">{arquivoErro}</p>}
         </div>
 
-        {/* Seção 2: Seletor de Contexto Principal */}
         <div className="mb-6">
           <label htmlFor="contexto" className="block text-gray-300 text-lg font-semibold mb-2">
             2. Contexto Principal
@@ -129,11 +122,10 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
             </select>
             <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-gray-400">▼</span>
           </div>
-            <p className="text-gray-400 text-sm mt-1">Define o prompt geral a ser usado pela IA.</p>
+            <p className="text-gray-400 text-sm mt-1">Define o prompt a ser usado pela IA.</p>
         </div>
 
-        {/* Seção 2.1: Seletor de Subcontexto (Condicional) */}
-        {/* Renderização condicional do seletor de subcontexto. */}
+        {/* Renderiza seletor específico condicionalmente para Gestão Educacional */}
         {contextoSelecionado === 'Gestão Educacional' && (
           <div className="mb-6 pl-4 border-l-2 border-indigo-500"> 
             <label htmlFor="subcontexto" className="block text-gray-300 text-lg font-semibold mb-2">
@@ -144,7 +136,6 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
                 id="subcontexto" value={subContextoSelecionado}
                 onChange={(e) => setSubContextoSelecionado(e.target.value)}
                 disabled={carregando}
-                // Aplica classe de destaque se o campo for obrigatório e não selecionado.
                 className={`appearance-none shadow-inner border rounded-lg w-full py-3 pl-4 pr-10 bg-gray-800 text-gray-200 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer ${!subContextoSelecionado ? 'border-yellow-500' : 'border-gray-700'}`}
                 required 
               >
@@ -157,14 +148,12 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
               <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-gray-400">▼</span>
             </div>
             <p className="text-gray-400 text-sm mt-1">Selecione o tipo mais próximo para maior precisão.</p>
-              {/* Mensagem de aviso se o subcontexto não for selecionado. */}
               {!subContextoSelecionado && (
                   <p className="text-yellow-400 text-sm mt-1">Por favor, selecione um tipo específico.</p>
               )}
           </div>
         )}
 
-        {/* Seção 3: Instrução Adicional */}
         <div className="mb-6">
            <label htmlFor="promptUsuario" className="block text-gray-300 text-lg font-semibold mb-2">
             3. Instrução Adicional (Opcional)
@@ -178,11 +167,10 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
           />
         </div>
 
-        {/* Botão de Envio */}
         <div className="flex items-center justify-center mt-8">
           <button
             type="submit"
-            // Lógica para desabilitar o botão (carregando, sem arquivos, ou subcontexto faltando).
+            // Bloqueia envio se carregando, sem arquivos ou sem subcontexto obrigatório
             disabled={
                 carregando ||
                 arquivos.length === 0 ||
@@ -191,7 +179,6 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
             }
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 text-lg rounded-lg focus:outline-none focus:shadow-outline disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105"
           >
-            {/* Texto do botão muda dinamicamente com base no estado. */}
             {carregando ? 'Analisando...' : `Analisar ${arquivos.length} Documento(s)`}
           </button>
         </div>

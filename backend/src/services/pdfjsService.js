@@ -1,14 +1,13 @@
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { createCanvas } from 'canvas';
 
-// Função auxiliar para criar uma pequena pausa.
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Função principal para extrair o conteúdo de um arquivo PDF.
+// Processa buffer PDF extraindo texto e imagens de cada página
 export async function extrairTextoPdfComBiblioteca(dataBuffer) {
     const uint8Array = new Uint8Array(dataBuffer);
 
-    // Carrega o documento PDF a partir dos dados do arquivo.
+    // Carrega documento PDF definindo caminho para fontes padrão
     const loadingTask = pdfjsLib.getDocument({
         data: uint8Array,
         standardFontDataUrl: './node_modules/pdfjs-dist/standard_fonts/',
@@ -17,13 +16,13 @@ export async function extrairTextoPdfComBiblioteca(dataBuffer) {
     const doc = await loadingTask.promise;
     const pagesData = [];
 
-    // Itera sobre cada página do documento.
+    // Itera por todas as páginas do documento para extração
     for (let i = 1; i <= doc.numPages; i++) {
         const page = await doc.getPage(i);
         let embeddedText = '';
         let images = [];
 
-        // Tenta extrair o texto que já está em formato de texto no PDF.
+        // Tenta extrair conteúdo textual da camada da página
         try {
             const textContent = await page.getTextContent();
             embeddedText = textContent?.items?.map(item => item.str).join(' ') || '';
@@ -31,25 +30,24 @@ export async function extrairTextoPdfComBiblioteca(dataBuffer) {
             console.warn(`Aviso: Falha ao extrair texto embutido da página ${i}.`);
         }
 
-        // Tenta encontrar e extrair as imagens da página.
+        // Busca lista de operadores para identificar imagens renderizadas
         try {
             const operatorList = await page.getOperatorList();
             const imageKeys = new Set();
 
-            // Percorre as operações de renderização da página em busca de imagens.
+            // Percorre operações gráficas filtrando objetos de imagem
             for (let j = 0; j < operatorList.fnArray.length; j++) {
                 if (operatorList.fnArray[j] === pdfjsLib.OPS.paintImageXObject) {
                     const key = operatorList.argsArray[j][0];
                     if (key && !imageKeys.has(key)) {
                         imageKeys.add(key);
 
-                        // Processa os dados da imagem encontrada.
                         try {
                             let imgData;
+                            // Tenta obter objeto da imagem com retry para carregamento assíncrono
                             try {
                                 imgData = await page.objs.get(key);
                             } catch (e) {
-                                // Tenta novamente após uma pequena pausa se a imagem ainda não carregou.
                                 if (e.message.includes("resolved yet")) {
                                     await sleep(150);
                                     imgData = await page.objs.get(key);
@@ -58,7 +56,7 @@ export async function extrairTextoPdfComBiblioteca(dataBuffer) {
                                 }
                             }
 
-                            // Se a imagem for válida, converte-a para o formato PNG.
+                            // Converte dados de pixel para PNG usando Canvas
                             if (imgData && imgData.data) {
                                 const canvas = createCanvas(imgData.width, imgData.height);
                                 const ctx = canvas.getContext('2d');
@@ -77,7 +75,6 @@ export async function extrairTextoPdfComBiblioteca(dataBuffer) {
             console.warn(`Aviso: Falha ao extrair a lista de imagens da página ${i}.`);
         }
 
-        // Armazena o texto e as imagens extraídas da página.
         pagesData.push({
             pageNumber: i,
             embeddedText,
@@ -85,6 +82,5 @@ export async function extrairTextoPdfComBiblioteca(dataBuffer) {
         });
     }
 
-    // Retorna os dados de todas as páginas.
     return pagesData;
 }

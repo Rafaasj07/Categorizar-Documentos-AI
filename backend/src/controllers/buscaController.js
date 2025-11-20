@@ -1,14 +1,13 @@
 import { buscarDocumentos } from '../services/mongoDbService.js';
 
-// Função que lida com a rota de busca.
+// Controlador para busca de documentos com filtros e paginação
 export const buscarDocumentosController = async (req, res) => {
     try {
-        // Pega os filtros (termo, categoria, etc.) da URL da requisição.
         const { termo, categoria, sortOrder, limit, nextToken } = req.query;
 
-        // Chama a função que executa a busca no banco de dados com os filtros.
+        // Consulta serviço de busca aplicando filtros e limite de paginação
         const { documentos, nextToken: newNextToken } = await buscarDocumentos(
-            req.user, 
+            req.user,
             termo,
             categoria,
             sortOrder,
@@ -16,14 +15,11 @@ export const buscarDocumentosController = async (req, res) => {
             nextToken
         );
 
-
-        // Retorna os documentos encontrados e o token para a próxima página.
         res.json({
             documentos,
             nextToken: newNextToken
         });
     } catch (error) {
-        // Em caso de erro, retorna uma resposta de falha.
         console.error(`Erro no controller de busca:`, error);
         res.status(500).json({ erro: 'Erro ao buscar os documentos.' });
     }

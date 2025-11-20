@@ -1,9 +1,8 @@
 import axios from 'axios';
 
-// URL base da API de autenticação
 const API_URL = `${import.meta.env.VITE_API_URL}auth`;
 
-// registra um novo usuário
+// Envia requisição para registrar um novo usuário no sistema
 export const apiRegister = async (username, password) => {
     try {
         const response = await axios.post(`${API_URL}/register`, { username, password });
@@ -13,7 +12,7 @@ export const apiRegister = async (username, password) => {
     }
 };
 
-// autentica usuário e retorna token e dados
+// Realiza login e retorna os dados do usuário autenticado (incluindo token)
 export const apiLogin = async (username, password) => {
     try {
         const response = await axios.post(`${API_URL}/login`, { username, password });

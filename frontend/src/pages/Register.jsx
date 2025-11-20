@@ -3,50 +3,39 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import icone from '../assets/icone.png';
 
-/**
- * Renderiza a página de cadastro de novo usuário,
- * validando senhas e tratando a submissão.
- */
 const Register = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [mensagem, setMensagem] = useState(''); 
-    const [isSuccess, setIsSuccess] = useState(false); 
+    const [mensagem, setMensagem] = useState('');
+    const [isSuccess, setIsSuccess] = useState(false);
 
     const { register, loading } = useAuth();
     const navigate = useNavigate();
 
-    // Limpa as mensagens de feedback (sucesso/erro) ao focar em um input.
+    // Reseta estados de feedback visual ao interagir com inputs
     const limparFeedback = () => {
         setMensagem('');
         setIsSuccess(false);
     };
 
-    /**
-     * Lida com a submissão do formulário de registro.
-     * Valida as senhas e chama a API de registro.
-     */
+    // Gerencia submissão, valida senhas e redireciona após cadastro bem-sucedido
     const handleSubmit = async (e) => {
         e.preventDefault();
         limparFeedback();
 
-        // Valida se as senhas digitadas coincidem.
         if (password !== confirmPassword) {
             setMensagem('As senhas não coincidem.');
             return;
         }
 
         try {
-            // Chama a função de registro do contexto de autenticação.
             await register(username, password);
-            
-            // Define a mensagem de sucesso e agenda o redirecionamento.
+
             setMensagem('Cadastro realizado com sucesso! Redirecionando para o login...');
             setIsSuccess(true);
             setTimeout(() => navigate('/login'), 2000);
         } catch (err) {
-            // Extrai e exibe a mensagem de erro da API.
             const errorMsg = err.response?.data?.mensagem || err.message || 'Ocorreu um erro no cadastro.';
             setMensagem(errorMsg);
             setIsSuccess(false);
@@ -77,7 +66,6 @@ const Register = () => {
                         <input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} onFocus={limparFeedback} required className={`mt-1 block w-full px-4 py-2 bg-gray-800 border rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 ${mensagem && !isSuccess ? 'border-red-500' : 'border-gray-600'}`} />
                     </div>
 
-                    {/* Exibe mensagens de erro (vermelho) ou sucesso (verde) */}
                     <div className="h-6 text-center">
                         {mensagem && (
                             <p className={`text-sm ${isSuccess ? 'text-green-500' : 'text-red-500'}`}>
@@ -88,7 +76,6 @@ const Register = () => {
 
                     <div>
                         <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3 px-4 rounded-md shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600">
-                            {/* Alterna o conteúdo do botão durante o carregamento */}
                             {loading && <i className='bx bx-loader-alt animate-spin'></i>}
                             {loading ? 'Cadastrando...' : 'Cadastrar'}
                         </button>

@@ -4,17 +4,12 @@ import InfoDocumento from '../components/info/InfoDocumento';
 import NavPadrao from '../components/NavPadrao';
 import NavInferior from '../components/NavInferior';
 
-/**
- * Componente principal da página de categorização de documentos.
- * Gerencia o estado da análise e exibe o formulário e os resultados.
- */
 function Categorizar() {
-  // Hook customizado que gerencia a lógica de chamada da API de análise.
+  // Gerencia estado e lógica de análise via hook customizado
   const { documentosInfo, carregando, erro, progresso, analisarDocumento } = useDocumentos();
 
-  // Formata a string de progresso para permitir quebra de linha em nomes de arquivos longos.
+  // Formata visualmente o progresso, permitindo quebra de linha em nomes de arquivos longos
   const renderProgresso = () => {
-    // Tenta extrair o nome do arquivo da string de progresso via regex.
     const match = progresso.match(/(Analisando \d+ de \d+: ")([^"]+)(")/);
 
     if (match) {
@@ -22,14 +17,12 @@ function Categorizar() {
       const nomeArquivo = match[2];
       const sufixo = match[3];
 
-      // Retorna JSX com o nome do arquivo em um span para permitir quebra de linha.
       return (
         <>
           {prefixo}<span className="break-all">{nomeArquivo}</span>{sufixo}
         </>
       );
     }
-    // Retorna a string de progresso original se o regex não bater.
     return progresso;
   };
 
@@ -43,20 +36,17 @@ function Categorizar() {
           Classificação de Documentos PDF
         </h1>
 
-        {/* Exibe um bloco de feedback se ocorrer um erro na análise. */}
         {erro && (
           <div className="w-full max-w-3xl mt-4 p-4 bg-red-900 border border-red-700 text-red-200 rounded-lg text-center">
             <p><strong>Ops, algo deu errado:</strong> {erro}</p>
           </div>
         )}
 
-        {/* Componente do formulário de upload e seleção de contexto. */}
         <FormularioDocumento
-          aoAnalisar={analisarDocumento} // Passa a função de análise do hook.
+          aoAnalisar={analisarDocumento} 
           carregando={carregando}
         />
 
-        {/* Exibe a mensagem de progresso durante a análise. */}
         {carregando && progresso && (
           <div className="w-full max-w-3xl my-4 p-3 bg-blue-900/50 border border-blue-700 text-blue-200 rounded-lg text-center">
             <p className="flex items-center justify-center gap-2">
@@ -65,18 +55,16 @@ function Categorizar() {
           </div>
         )}
 
-        {/* Renderiza a seção de resultados se houver documentos analisados. */}
+        {/* Renderiza a lista de resultados processados */}
         {documentosInfo.length > 0 && (
           <div className="space-y-6 mt-8">
             <h2 className="text-3xl font-bold text-center text-white">Resultados da Análise</h2>
             
-            {/* Itera sobre cada resultado e renderiza o componente InfoDocumento. */}
             {documentosInfo.map((info, index) => (
               <div key={index}>
                 <h3 className="text-xl font-semibold text-gray-300 mb-2 border-b border-gray-700 pb-1 break-all">
                   Arquivo: {info.nomeArquivo}
                 </h3>
-                {/* O info.nomeArquivo está fora do 'doc' pois foi adicionado pelo hook */}
                 <InfoDocumento doc={info} />
               </div>
             ))}

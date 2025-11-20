@@ -4,11 +4,10 @@ import { apiRegister, apiLogin } from '../services/authService';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-    // Gerencia o estado do usuário e o status de carregamento.
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Ao iniciar a aplicação, verifica se há um usuário salvo no localStorage.
+    // Restaura a sessão do usuário verificando o localStorage na inicialização
     useEffect(() => {
         const storedUser = localStorage.getItem('userInfo');
         if (storedUser) {
@@ -18,7 +17,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, []);
 
-    // Função de login: chama a API, salva os dados no localStorage e atualiza o estado.
+    // Realiza login, persiste dados da sessão e atualiza estado global
     const login = async (username, password) => {
         setLoading(true);
         return apiLogin(username, password)
@@ -31,7 +30,7 @@ export const AuthProvider = ({ children }) => {
             });
     };
 
-    // Função de registro: chama a API de registro.
+    // Registra novo usuário via API
     const register = async (username, password) => {
         setLoading(true);
         return apiRegister(username, password)
@@ -40,7 +39,7 @@ export const AuthProvider = ({ children }) => {
             });
     };
 
-    // Função de logout: remove os dados do localStorage e limpa o estado.
+    // Remove dados da sessão, limpa estado e simula delay de saída
     const logout = () => {
         setLoading(true);
         setTimeout(() => {
@@ -50,7 +49,6 @@ export const AuthProvider = ({ children }) => {
         }, 500);
     };
 
-    // Objeto com os valores que serão compartilhados com os componentes da aplicação.
     const value = {
         user,
         isAuthenticated: !!user,
@@ -61,7 +59,6 @@ export const AuthProvider = ({ children }) => {
         logout
     };
 
-    // Disponibiliza o contexto de autenticação para os componentes filhos.
     return (
         <AuthContext.Provider value={value}>
             {children}

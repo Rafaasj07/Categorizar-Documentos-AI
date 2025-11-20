@@ -1,11 +1,7 @@
 import { renderField, formatDate } from '../../../utils/renderUtils';
 
-/**
- * Componente React para exibir os metadados específicos
- * de um documento do tipo "Diploma".
- */
+// Exibe metadados específicos de documentos do tipo Diploma
 const InfoDiploma = ({ metadados }) => {
-  // Retorna uma mensagem padrão se não houver metadados.
   if (!metadados) return <p className="text-gray-500">Nenhum metadado extraído.</p>;
 
   const {
@@ -15,7 +11,6 @@ const InfoDiploma = ({ metadados }) => {
   } = metadados;
 
   return (
-    // Renderiza os campos de metadados usando um utilitário.
     <div className="space-y-3 text-sm">
       {renderField('Número Diploma', numero_diploma)}
       {renderField('Processo MEC', processo_mec)}

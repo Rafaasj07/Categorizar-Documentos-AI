@@ -1,11 +1,7 @@
 import { renderField, formatDate } from '../../../utils/renderUtils';
 
-/**
- * Componente React para exibir os metadados específicos
- * de um documento do tipo "Registro de Matrícula".
- */
+// Exibe metadados específicos de documentos de Registro de Matrícula
 const InfoRegistroMatricula = ({ metadados }) => {
-  // Retorna uma mensagem padrão se não houver metadados.
   if (!metadados) return <p className="text-gray-500">Nenhum metadado extraído.</p>;
 
   const {
@@ -15,7 +11,6 @@ const InfoRegistroMatricula = ({ metadados }) => {
   } = metadados;
 
   return (
-    // Renderiza os campos de metadados usando um utilitário.
     <div className="space-y-3 text-sm">
       {renderField('Instituição', instituicao)}
       {renderField('Estudante', estudante)}
