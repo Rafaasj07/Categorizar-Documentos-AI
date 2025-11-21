@@ -5,10 +5,10 @@ import NavPadrao from '../components/NavPadrao';
 import NavInferior from '../components/NavInferior';
 
 function Categorizar() {
-  // Gerencia estado e lógica de análise via hook customizado
+  // Hook que gerencia o estado da análise e a comunicação com a API
   const { documentosInfo, carregando, erro, progresso, analisarDocumento } = useDocumentos();
 
-  // Formata visualmente o progresso, permitindo quebra de linha em nomes de arquivos longos
+  // Formata a mensagem de progresso para destacar o nome do arquivo em processamento
   const renderProgresso = () => {
     const match = progresso.match(/(Analisando \d+ de \d+: ")([^"]+)(")/);
 
@@ -55,7 +55,7 @@ function Categorizar() {
           </div>
         )}
 
-        {/* Renderiza a lista de resultados processados */}
+        {/* Renderiza os resultados das análises concluídas */}
         {documentosInfo.length > 0 && (
           <div className="space-y-6 mt-8">
             <h2 className="text-3xl font-bold text-center text-white">Resultados da Análise</h2>
@@ -63,7 +63,7 @@ function Categorizar() {
             {documentosInfo.map((info, index) => (
               <div key={index}>
                 <h3 className="text-xl font-semibold text-gray-300 mb-2 border-b border-gray-700 pb-1 break-all">
-                  Arquivo: {info.nomeArquivo}
+                  Arquivo: {info.fileName}
                 </h3>
                 <InfoDocumento doc={info} />
               </div>
