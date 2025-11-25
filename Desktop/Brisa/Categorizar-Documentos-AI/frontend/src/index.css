@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+/* Adicione este bloco para definir o fundo global */
+html, body, #root {
+  background-color: black;
+}
+
+/* Remove apenas o fundo branco do autofill no Chrome */
+input.login-input:-webkit-autofill,
+input.login-input:-webkit-autofill:hover,
+input.login-input:-webkit-autofill:focus,
+input.login-input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px transparent inset !important; /* fundo transparente */
+  transition: background-color 5000s ease-in-out 0s; /* evita piscada */
+}
