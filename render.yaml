@@ -1,4 +1,5 @@
 services:
+  # Backend
   - type: web
     name: categorizador-backend
     env: docker
@@ -26,12 +27,14 @@ services:
         value: categorizar-docs-prod
       - key: CORS_ORIGIN
         fromService:
-          type: static
+          type: web           
           name: categorizador-frontend
           property: url
-  - type: static
+
+  # Frontend
+  - type: web                   
     name: categorizador-frontend
-    env: static
+    env: static                 
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
