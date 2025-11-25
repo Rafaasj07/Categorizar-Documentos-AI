@@ -1,15 +1,17 @@
 import User from '../models/user.js';
 
-// Verifica e popula o banco com usuários padrão caso não existam
+// Popula o banco com usuários iniciais se a coleção estiver vazia
 const seedUsers = async () => {
     try {
-        // Consulta se já há documentos para evitar duplicação
+        console.log('[SEED] Verificando existência de usuários padrão...');
+
         const count = await User.countDocuments();
         if (count > 0) {
+            console.log('[SEED] Usuários já existem.');
             return;
         }
 
-        // Insere usuários iniciais (admin e user) no banco
+        // Cria administrador e usuário comum
         await User.create({
             username: 'admin',
             password: 'admin',
@@ -22,10 +24,10 @@ const seedUsers = async () => {
             role: 'user'
         });
 
-        console.log('Usuários padrão (admin, user) criados com sucesso.');
+        console.log('[SEED] Sucesso: Usuários "admin" e "user" criados.');
 
     } catch (error) {
-        console.error('Erro ao criar usuários padrão:', error);
+        console.error('[SEED] Erro crítico ao criar usuários:', error);
         process.exit(1);
     }
 };

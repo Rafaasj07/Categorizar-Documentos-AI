@@ -19,7 +19,7 @@ import { promptPortariaAto } from '../prompts/gestaoEducacional/promptPortariaAt
 import { promptRegistroMatricula } from '../prompts/gestaoEducacional/promptRegistroMatricula.js';
 import { promptDocEducacionalGenerico } from '../prompts/gestaoEducacional/promptDocEducacionalGenerico.js';
 
-// Normaliza a string de categoria
+// Normaliza nome da categoria para formato padrão
 const padronizarCategoria = (categoria) => {
     if (!categoria || typeof categoria !== 'string') return "Indefinida";
     const partePrincipal = categoria.split(/[\/(]/)[0].trim();
@@ -29,7 +29,7 @@ const padronizarCategoria = (categoria) => {
 
 const MAX_CHUNK_SIZE = 15000;
 
-// Remove linhas duplicadas e vazias do array de texto
+// Remove linhas vazias ou repetidas para limpar o texto
 function removerLinhasDuplicadas(linhas) {
     if (!Array.isArray(linhas)) return [];
     const vistos = new Set();
@@ -70,6 +70,8 @@ export const categorizarComArquivo = async (req, res) => {
             originalFilenameUtf8 = req.file.originalname;
         }
 
+        console.log(`[UPLOAD] Iniciando: ${originalFilenameUtf8} (ID: ${doc_uuid})`);
+
         storageInfo = await uploadParaR2(req.file.buffer, originalFilenameUtf8);
 
         const metadadosIniciais = {
@@ -87,7 +89,9 @@ export const categorizarComArquivo = async (req, res) => {
         await registrarMetadados(metadadosIniciais);
         await atualizarMetadados(doc_uuid, "PROCESSING", null);
 
+        console.log(`[EXTRACT] Extraindo texto/imagens do PDF...`);
         const extracaoPorPagina = await extrairTextoPdfComBiblioteca(req.file.buffer);
+
         let textoConsolidadoArray = [];
         let tamanhoTextoAtual = 0;
 
@@ -99,6 +103,7 @@ export const categorizarComArquivo = async (req, res) => {
             if (tamanhoTextoAtual > MAX_CHUNK_SIZE) break;
 
             if (pagina.images && pagina.images.length > 0) {
+                console.log(`[OCR] Imagens detectadas na página ${pagina.pageNumber}. Iniciando OCR...`);
                 for (const imgBuffer of pagina.images) {
                     try {
                         const textoOcr = await extractTextFromImage(imgBuffer);
@@ -108,7 +113,7 @@ export const categorizarComArquivo = async (req, res) => {
                         }
                         if (tamanhoTextoAtual > MAX_CHUNK_SIZE) break;
                     } catch (ocrError) {
-                        console.error(`Erro OCR pág ${pagina.pageNumber}: ${ocrError.message}`);
+                        console.error(`[OCR] Falha na pág ${pagina.pageNumber}: ${ocrError.message}`);
                     }
                 }
             }
@@ -121,12 +126,16 @@ export const categorizarComArquivo = async (req, res) => {
         let textoParaAnalise = textosLimpos;
 
         if (textosLimpos.length > MAX_CHUNK_SIZE) {
+            console.log(`[INFO] Texto extenso (${textosLimpos.length} chars). Truncando para análise.`);
+
             const inicio = textosLimpos.substring(0, 10000);
             const fim = textosLimpos.substring(textosLimpos.length - 5000);
             textoParaAnalise = `${inicio}\n\n... [TEXTO CENTRAL OMITIDO] ...\n\n${fim}`;
         }
 
         if (!textoParaAnalise || textoParaAnalise.length < 10) {
+            console.warn(`[WARN] Texto insuficiente extraído para ${doc_uuid}`);
+            
             const resultadoPadrao = {
                 categoria: "Não Identificado",
                 metadados: { resumo_geral_ia: "Texto extraído insuficiente para análise." }
@@ -166,6 +175,7 @@ export const categorizarComArquivo = async (req, res) => {
             }
         }
 
+        console.log(`[IA] Enviando para análise. Contexto: ${contextoSelecionado}`);
         const promptFinal = typeof promptBase === 'function'
             ? promptBase.replace(/\$\{promptUsuario\}/g, instrucaoUsuario).replace(/\$\{categoriasExistentes\}/g, JSON.stringify(categoriasExistentes)).replace(/\$\{textoParaAnalise\}/g, textoParaAnalise)
             : promptBase.replace(/\$\{promptUsuario\}/g, instrucaoUsuario).replace(/\$\{textoParaAnalise\}/g, textoParaAnalise);
@@ -182,6 +192,7 @@ export const categorizarComArquivo = async (req, res) => {
         }
 
         await atualizarMetadados(doc_uuid, "PROCESSED", respostaJson);
+        console.log(`[SUCCESS] Processamento finalizado. Categoria: ${respostaJson.categoria}`);
 
         res.json({
             ...metadadosIniciais,
@@ -190,6 +201,7 @@ export const categorizarComArquivo = async (req, res) => {
         });
 
     } catch (error) {
+        console.error(`[ERROR] Falha no documento ${doc_uuid}: ${error.message}`);
         try { await atualizarMetadados(doc_uuid, "FAILED", { erro: error.message || "Erro desconhecido." }); } catch (dbError) { }
         if (storageInfo) { try { await apagarDoR2(storageInfo.bucketName, storageInfo.storageKey); } catch (r2Error) { } }
         res.status(500).json({ erro: `Erro ao processar o arquivo: ${error.message || 'Erro interno.'}` });
@@ -204,8 +216,10 @@ export const atualizarMetadadosController = async (req, res) => {
     try {
         if (!novoResultadoIa) return res.status(400).json({ erro: 'Dados ausentes.' });
         await atualizarApenasMetadadosIA(doc_uuid, novoResultadoIa);
+        console.log(`[ADMIN] Metadados atualizados manualmente para ${doc_uuid}`);
         res.status(200).json({ mensagem: 'Metadados atualizados com sucesso.' });
     } catch (error) {
+        console.error(`[ADMIN] Erro ao atualizar: ${error.message}`);
         res.status(500).json({ erro: `Erro ao atualizar metadados: ${error.message}` });
     }
 };

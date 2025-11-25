@@ -9,9 +9,12 @@ export const apagarDocumentoController = async (req, res) => {
         return res.status(400).json({ erro: 'Nenhum documento para apagar.' });
     }
 
+    console.log(`[DELETE] Iniciando remoção de ${documentos.length} documento(s)...`);
+
     try {
         const promessas = documentos.map(doc => {
             if (doc.bucketName && doc.storageKey && doc.doc_uuid) {
+                console.log(`[DELETE] Removendo: ${doc.fileName} (UUID: ${doc.doc_uuid})`);
                 return Promise.all([
                     apagarDoR2(doc.bucketName, doc.storageKey),
                     apagarMetadados(doc.doc_uuid)
@@ -21,9 +24,11 @@ export const apagarDocumentoController = async (req, res) => {
         });
 
         await Promise.all(promessas);
+
+        console.log(`[DELETE] Sucesso: ${documentos.length} arquivos removidos.`);
         res.status(200).json({ mensagem: 'Documentos apagados com sucesso.' });
     } catch (error) {
-        console.error(`Erro na exclusão em lote:`, error);
+        console.error(`[DELETE] Erro crítico durante exclusão:`, error);
         res.status(500).json({ erro: 'Erro ao apagar os documentos.' });
     }
 };
