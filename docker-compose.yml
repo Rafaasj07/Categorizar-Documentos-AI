@@ -1,5 +1,5 @@
 services:
-  # Backend Node.js com build local
+  # Backend Node.js
   backend:
     build:
       context: ./backend
@@ -7,51 +7,8 @@ services:
     container_name: categorizador_backend
     ports:
       - "3001:3001"
-    # Mapeamento para hot-reload e isolamento de dependências
     volumes:
       - ./backend:/usr/src/app
       - /usr/src/app/node_modules
     env_file:
       - ./backend/.env
-    # Aguarda o MongoDB estar pronto antes de iniciar
-    depends_on:
-      mongo:
-        condition: service_healthy
-
-  # Serviço de armazenamento de objetos (MinIO)
-  minio:
-    image: minio/minio
-    container_name: minio
-    # Portas da API (9000) e Console Web (9001)
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio-data:/data
-    # Configuração de credenciais administrativas
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-      MINIO_SERVER_URL: http://localhost:9000
-    command: server /data --console-address ":9001"
-
-  # Banco de dados MongoDB
-  mongo:
-    image: mongo:latest
-    container_name: mongo
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    # Healthcheck para garantir disponibilidade do banco
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-
-# Volumes persistentes para dados
-volumes:
-  minio-data:
-  mongo-data:

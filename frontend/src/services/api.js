@@ -6,7 +6,7 @@ const api = axios.create({
   baseURL: API_URL,
 });
 
-// Intercepta requisições para injetar o token JWT do localStorage no header Authorization
+// Intercepta requisições para injetar o token JWT
 api.interceptors.request.use(
   (config) => {
     const userInfo = localStorage.getItem('userInfo');
@@ -25,7 +25,7 @@ api.interceptors.request.use(
 
 export default api; 
 
-// Envia arquivo e metadados via FormData para análise de categorização
+// Envia arquivo para categorização
 export const apiCategorizarComArquivo = async (contextoSelecionado, subContextoSelecionado, promptUsuario, arquivo) => {
   const formData = new FormData();
   formData.append('contextoSelecionado', contextoSelecionado); 
@@ -50,7 +50,7 @@ export const apiCategorizarComArquivo = async (contextoSelecionado, subContextoS
   }
 };
 
-// Recupera lista de documentos aplicando filtros e paginação via query params
+// Busca documentos com filtros
 export const apiBuscarDocumentos = async (params = {}) => {
   try {
     const response = await api.get('documento/buscar', { params });
@@ -61,12 +61,12 @@ export const apiBuscarDocumentos = async (params = {}) => {
   }
 };
 
-// Requisita download de arquivo configurando resposta como blob binário
+// Download de arquivo
 export const apiDownloadDocumento = async (doc) => {
   try {
     const response = await api.post('documento/download', {
       bucketName: doc.bucketName,
-      minioKey: doc.minioKey,
+      storageKey: doc.storageKey,
       fileName: doc.fileName
     }, {
       responseType: 'blob',
@@ -78,7 +78,7 @@ export const apiDownloadDocumento = async (doc) => {
   }
 };
 
-// Executa exclusão de documentos enviando lista de IDs no corpo da requisição
+// Exclusão de documentos
 export const apiApagarDocumento = async (documentos) => {
   try {
     const response = await api.delete('documento/apagar', {
@@ -91,7 +91,7 @@ export const apiApagarDocumento = async (documentos) => {
   }
 };
 
-// Obtém lista de todas as categorias cadastradas
+// Lista categorias
 export const apiListarCategorias = async () => {
   try {
     const response = await api.get('documento/categorias');
@@ -102,7 +102,7 @@ export const apiListarCategorias = async () => {
   }
 };
 
-// Envia avaliação (rating) do usuário para um documento específico
+// Envia feedback
 export const apiSubmitFeedback = async (doc_uuid, rating) => {
     try {
         const response = await api.post('feedback', { doc_uuid, rating });
@@ -113,7 +113,7 @@ export const apiSubmitFeedback = async (doc_uuid, rating) => {
     }
 };
 
-// Busca dados agregados de feedback para exibição administrativa
+// Busca agregado de feedback
 export const apiGetFeedbackAggregate = async (doc_uuid) => {
     try {
         const response = await api.get(`feedback/${doc_uuid}`);
@@ -124,7 +124,7 @@ export const apiGetFeedbackAggregate = async (doc_uuid) => {
     }
 };
 
-// Verifica se o usuário atual já realizou feedback no documento
+// Verifica feedback do usuário
 export const apiCheckUserFeedback = async (doc_uuid) => {
     try {
         const response = await api.get(`feedback/check/${doc_uuid}`);
@@ -135,7 +135,7 @@ export const apiCheckUserFeedback = async (doc_uuid) => {
     }
 };
 
-// Atualiza manualmente os metadados extraídos pela IA (Admin)
+// Atualiza metadados manualmente
 export const apiAtualizarMetadados = async (doc_uuid, novoResultadoIa) => {
   try {
     const response = await api.put(`documento/metadados/${doc_uuid}`, { novoResultadoIa });

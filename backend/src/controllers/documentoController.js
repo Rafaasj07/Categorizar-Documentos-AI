@@ -1,6 +1,6 @@
 import { extrairTextoPdfComBiblioteca } from '../services/pdfjsService.js';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadParaMinIO, apagarDoMinIO } from '../services/minioService.js';
+import { uploadParaR2, apagarDoR2 } from '../services/r2Service.js';
 import { registrarMetadados, atualizarMetadados, atualizarApenasMetadadosIA } from '../services/mongoDbService.js';
 import { invocarIA } from "../services/openRouterService.js";
 import { extractTextFromImage } from '../services/ocrService.js';
@@ -19,7 +19,7 @@ import { promptPortariaAto } from '../prompts/gestaoEducacional/promptPortariaAt
 import { promptRegistroMatricula } from '../prompts/gestaoEducacional/promptRegistroMatricula.js';
 import { promptDocEducacionalGenerico } from '../prompts/gestaoEducacional/promptDocEducacionalGenerico.js';
 
-// Normaliza a string de categoria removendo caracteres especiais e formatando capitulação
+// Normaliza a string de categoria
 const padronizarCategoria = (categoria) => {
     if (!categoria || typeof categoria !== 'string') return "Indefinida";
     const partePrincipal = categoria.split(/[\/(]/)[0].trim();
@@ -29,17 +29,7 @@ const padronizarCategoria = (categoria) => {
 
 const MAX_CHUNK_SIZE = 15000;
 
-// Divide strings longas em pedaços menores baseados no tamanho máximo permitido
-function criarChunks(texto) {
-    if (!texto || texto.length <= MAX_CHUNK_SIZE) return [texto || ''];
-    const chunks = [];
-    for (let i = 0; i < texto.length; i += MAX_CHUNK_SIZE) {
-        chunks.push(texto.substring(i, i + MAX_CHUNK_SIZE));
-    }
-    return chunks;
-}
-
-// Filtra o array de strings removendo entradas duplicadas ou vazias
+// Remove linhas duplicadas e vazias do array de texto
 function removerLinhasDuplicadas(linhas) {
     if (!Array.isArray(linhas)) return [];
     const vistos = new Set();
@@ -57,10 +47,10 @@ function removerLinhasDuplicadas(linhas) {
     return resultado;
 }
 
-// Processa upload de arquivo, extrai texto (OCR/PDF), envia para IA e salva resultados
+// Controlador principal de categorização
 export const categorizarComArquivo = async (req, res) => {
     const doc_uuid = uuidv4();
-    let minioInfo = null; 
+    let storageInfo = null;
 
     try {
         if (!req.file) {
@@ -71,42 +61,42 @@ export const categorizarComArquivo = async (req, res) => {
         const instrucaoUsuario = promptUsuario || "Nenhuma";
         let originalFilenameUtf8 = req.file.originalname;
 
-        // Corrige codificação do nome do arquivo de Latin1 para UTF-8 se necessário
         try {
-            const regexEncodingIncorreto = /[ÃÂ][\u0080-\u00FF]/u; 
+            const regexEncodingIncorreto = /[ÃÂ][\u0080-\u00FF]/u;
             if (regexEncodingIncorreto.test(originalFilenameUtf8)) {
                 originalFilenameUtf8 = Buffer.from(originalFilenameUtf8, 'latin1').toString('utf-8');
             }
         } catch (encError) {
-            originalFilenameUtf8 = req.file.originalname; 
+            originalFilenameUtf8 = req.file.originalname;
         }
-        
-        // Realiza upload para o MinIO e registra metadados iniciais no MongoDB
-        minioInfo = await uploadParaMinIO(req.file.buffer, originalFilenameUtf8); 
+
+        storageInfo = await uploadParaR2(req.file.buffer, originalFilenameUtf8);
 
         const metadadosIniciais = {
-            doc_uuid, minioKey: minioInfo.minioKey, bucketName: minioInfo.bucketName,
-            fileName: originalFilenameUtf8, 
-            fileSize: req.file.size, contentType: req.file.mimetype, userId: req.user.id,
-            uploadedTimeStamp: new Date(), status: "UPLOADED"
+            doc_uuid,
+            storageKey: storageInfo.storageKey,
+            bucketName: storageInfo.bucketName,
+            fileName: originalFilenameUtf8,
+            fileSize: req.file.size,
+            contentType: req.file.mimetype,
+            userId: req.user.id,
+            uploadedTimeStamp: new Date(),
+            status: "UPLOADED"
         };
+
         await registrarMetadados(metadadosIniciais);
         await atualizarMetadados(doc_uuid, "PROCESSING", null);
 
-        // Extrai texto e imagens do PDF processado
         const extracaoPorPagina = await extrairTextoPdfComBiblioteca(req.file.buffer);
-
         let textoConsolidadoArray = [];
-        let tamanhoTextoAtual = 0; 
-        
-        // Itera sobre páginas acumulando texto e executando OCR em imagens se necessário
+        let tamanhoTextoAtual = 0;
+
         for (const pagina of extracaoPorPagina) {
             if (pagina.embeddedText) {
                 textoConsolidadoArray.push(pagina.embeddedText);
                 tamanhoTextoAtual += pagina.embeddedText.length;
             }
-            
-            if (tamanhoTextoAtual > MAX_CHUNK_SIZE) break; 
+            if (tamanhoTextoAtual > MAX_CHUNK_SIZE) break;
 
             if (pagina.images && pagina.images.length > 0) {
                 for (const imgBuffer of pagina.images) {
@@ -125,23 +115,19 @@ export const categorizarComArquivo = async (req, res) => {
             if (tamanhoTextoAtual > MAX_CHUNK_SIZE) break;
         }
 
-        // Consolida texto extraído e remove duplicatas para limpeza
         const textoBruto = textoConsolidadoArray.join('\n');
         const linhasUnicas = removerLinhasDuplicadas(textoBruto.split('\n'));
         const textosLimpos = linhasUnicas.join('\n');
-        
         let textoParaAnalise = textosLimpos;
 
-        // Aplica estratégia de corte para textos muito longos (início + fim) para otimizar tokenização
         if (textosLimpos.length > MAX_CHUNK_SIZE) {
             const inicio = textosLimpos.substring(0, 10000);
             const fim = textosLimpos.substring(textosLimpos.length - 5000);
-            textoParaAnalise = `${inicio}\n\n... [CONTEÚDO CENTRAL EXTENSO OMITIDO PARA OTIMIZAÇÃO] ...\n\n${fim}`;
+            textoParaAnalise = `${inicio}\n\n... [TEXTO CENTRAL OMITIDO] ...\n\n${fim}`;
         }
 
-       // Retorna erro se o texto extraído for insuficiente para análise
         if (!textoParaAnalise || textoParaAnalise.length < 10) {
-            const resultadoPadrao = { 
+            const resultadoPadrao = {
                 categoria: "Não Identificado",
                 metadados: { resumo_geral_ia: "Texto extraído insuficiente para análise." }
             };
@@ -149,12 +135,11 @@ export const categorizarComArquivo = async (req, res) => {
             return res.json({ ...metadadosIniciais, resultadoIa: resultadoPadrao, status: "PROCESSED" });
         }
 
-        // Seleciona o prompt adequado baseando-se no contexto e subcontexto informados
         let promptBase;
-        let categoriasExistentes = []; 
+        let categoriasExistentes = [];
 
         if (contextoSelecionado === 'Gestão Educacional') {
-            switch (subContextoSelecionado) { 
+            switch (subContextoSelecionado) {
                 case 'Diploma': promptBase = promptDiploma; break;
                 case 'Histórico Escolar': promptBase = promptHistoricoEscolar; break;
                 case 'Ata de Resultados': promptBase = promptAtaResultados; break;
@@ -163,35 +148,33 @@ export const categorizarComArquivo = async (req, res) => {
                 case 'Regimento Interno': promptBase = promptRegimentoInterno; break;
                 case 'Portaria ou Ato': promptBase = promptPortariaAto; break;
                 case 'Registro de Matrícula': promptBase = promptRegistroMatricula; break;
-                default: promptBase = promptDocEducacionalGenerico; break; 
+                default: promptBase = promptDocEducacionalGenerico; break;
             }
-        } else { 
+        } else {
             switch (contextoSelecionado) {
                 case 'Nota Fiscal': promptBase = promptNotaFiscal; break;
                 case 'Cartório': promptBase = promptCartorio; break;
                 case 'SEI': promptBase = promptSEI; break;
                 case 'Padrão':
-                default: 
+                default:
                     try {
                         categoriasExistentes = await Documento.distinct('resultadoIa.categoria').exec();
                         categoriasExistentes = categoriasExistentes.filter(c => c && c !== 'Indefinida' && c !== 'Não Identificado');
-                    } catch (dbError) {}
+                    } catch (dbError) { }
                     promptBase = promptPadrao;
                     break;
             }
         }
 
-        // Monta o prompt final com variáveis e invoca o serviço de IA
-        const promptFinal = typeof promptBase === 'function' 
+        const promptFinal = typeof promptBase === 'function'
             ? promptBase.replace(/\$\{promptUsuario\}/g, instrucaoUsuario).replace(/\$\{categoriasExistentes\}/g, JSON.stringify(categoriasExistentes)).replace(/\$\{textoParaAnalise\}/g, textoParaAnalise)
             : promptBase.replace(/\$\{promptUsuario\}/g, instrucaoUsuario).replace(/\$\{textoParaAnalise\}/g, textoParaAnalise);
 
         const respostaJson = await invocarIA(promptFinal);
 
-        // Padroniza a resposta da IA e trata casos de falha na categorização
         if (respostaJson && respostaJson.categoria) {
             respostaJson.categoria = padronizarCategoria(respostaJson.categoria);
-        } else { 
+        } else {
             if (!respostaJson) respostaJson = { metadados: {} };
             respostaJson.categoria = "Indefinida";
             if (!respostaJson.metadados) respostaJson.metadados = {};
@@ -204,23 +187,22 @@ export const categorizarComArquivo = async (req, res) => {
             ...metadadosIniciais,
             resultadoIa: respostaJson,
             status: "PROCESSED"
-        }); 
+        });
 
     } catch (error) {
-        // Em caso de erro, remove o arquivo do MinIO e atualiza status para falha
-        try { await atualizarMetadados(doc_uuid, "FAILED", { erro: error.message || "Erro desconhecido." }); } catch (dbError) {}
-        if (minioInfo) { try { await apagarDoMinIO(minioInfo.bucketName, minioInfo.minioKey); } catch (minioError) {} }
+        try { await atualizarMetadados(doc_uuid, "FAILED", { erro: error.message || "Erro desconhecido." }); } catch (dbError) { }
+        if (storageInfo) { try { await apagarDoR2(storageInfo.bucketName, storageInfo.storageKey); } catch (r2Error) { } }
         res.status(500).json({ erro: `Erro ao processar o arquivo: ${error.message || 'Erro interno.'}` });
     }
 };
 
-// Endpoint administrativo para atualização manual dos metadados da IA
+// Endpoint admin para atualizar metadados manualmente
 export const atualizarMetadadosController = async (req, res) => {
     const { doc_uuid } = req.params;
-    const { novoResultadoIa } = req.body; 
+    const { novoResultadoIa } = req.body;
 
     try {
-        if (!novoResultadoIa) return res.status(400).json({ erro: 'Dados de metadados ausentes.' });
+        if (!novoResultadoIa) return res.status(400).json({ erro: 'Dados ausentes.' });
         await atualizarApenasMetadadosIA(doc_uuid, novoResultadoIa);
         res.status(200).json({ mensagem: 'Metadados atualizados com sucesso.' });
     } catch (error) {

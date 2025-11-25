@@ -1,8 +1,8 @@
 import express from 'express';
 import multer from 'multer';
-import { 
-    categorizarComArquivo, 
-    atualizarMetadadosController 
+import {
+    categorizarComArquivo,
+    atualizarMetadadosController
 } from '../controllers/documentoController.js';
 import { buscarDocumentosController } from '../controllers/buscaController.js';
 import { downloadDocumentoController } from '../controllers/downloadController.js';
@@ -100,11 +100,14 @@ router.get('/buscar', protect, buscarDocumentosController);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [bucketName, minioKey, fileName]
+ *             required:
+ *               - bucketName
+ *               - storageKey
+ *               - fileName
  *             properties:
  *               bucketName:
  *                 type: string
- *               minioKey:
+ *               storageKey:
  *                 type: string
  *               fileName:
  *                 type: string
@@ -138,7 +141,7 @@ router.post('/download', protect, downloadDocumentoController);
  *                       type: string
  *                     bucketName:
  *                       type: string
- *                     minioKey:
+ *                     storageKey:
  *                       type: string
  *     responses:
  *       200:

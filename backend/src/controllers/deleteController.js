@@ -1,31 +1,29 @@
-import { apagarDoMinIO } from '../services/minioService.js';
+import { apagarDoR2 } from '../services/r2Service.js';
 import { apagarMetadados } from '../services/mongoDbService.js';
 
-// Controlador para exclusão em lote de documentos (MinIO e MongoDB)
+// Exclui documentos do R2 e MongoDB em lote
 export const apagarDocumentoController = async (req, res) => {
     const { documentos } = req.body;
 
     if (!documentos || !Array.isArray(documentos) || documentos.length === 0) {
-        return res.status(400).json({ erro: 'Nenhum documento selecionado para apagar.' });
+        return res.status(400).json({ erro: 'Nenhum documento para apagar.' });
     }
 
     try {
-        // Gera promessas para remover arquivos do MinIO e metadados do Mongo em paralelo
-        const promessasDeExclusao = documentos.map(doc => {
-            if (doc.bucketName && doc.minioKey && doc.doc_uuid) {
+        const promessas = documentos.map(doc => {
+            if (doc.bucketName && doc.storageKey && doc.doc_uuid) {
                 return Promise.all([
-                    apagarDoMinIO(doc.bucketName, doc.minioKey),
+                    apagarDoR2(doc.bucketName, doc.storageKey),
                     apagarMetadados(doc.doc_uuid)
                 ]);
             }
             return Promise.resolve();
         });
 
-        // Aguarda a conclusão de todas as exclusões
-        await Promise.all(promessasDeExclusao);
-        res.status(200).json({ mensagem: 'Documentos selecionados foram apagados com sucesso.' });
+        await Promise.all(promessas);
+        res.status(200).json({ mensagem: 'Documentos apagados com sucesso.' });
     } catch (error) {
-        console.error(`Erro no controller de exclusão em lote:`, error);
+        console.error(`Erro na exclusão em lote:`, error);
         res.status(500).json({ erro: 'Erro ao apagar os documentos.' });
     }
 };

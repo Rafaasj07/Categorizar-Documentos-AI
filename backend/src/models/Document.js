@@ -6,19 +6,17 @@ const ResultadoIaSchema = new mongoose.Schema({
     metadados: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, { _id: false });
 
-// Schema principal definindo estrutura do documento, índices e status de processamento
+// Schema principal do documento
 const DocumentoSchema = new mongoose.Schema({
     doc_uuid: { type: String, required: true, unique: true, index: true },
-    minioKey: { type: String, required: true },
+    storageKey: { type: String, required: true }, // Chave no R2
     bucketName: { type: String, required: true },
     fileName: { type: String, required: true },
     fileSize: { type: Number, required: true },
     contentType: { type: String },
     userId: { type: String, index: true },
     uploadedTimeStamp: { type: Date, default: Date.now, index: true },
-
     status: { type: String, enum: ['UPLOADED', 'PROCESSING', 'PROCESSED', 'FAILED'], required: true },
-
     resultadoIa: ResultadoIaSchema
 });
 

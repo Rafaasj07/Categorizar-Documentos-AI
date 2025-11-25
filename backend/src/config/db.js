@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Estabelece conexão assíncrona com o banco de dados MongoDB
+//Conecta ao banco de dados MongoDB via URI definida no ambiente 
 const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);

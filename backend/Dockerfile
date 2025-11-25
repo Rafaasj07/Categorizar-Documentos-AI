@@ -1,20 +1,19 @@
-FROM node:22
+FROM node:22-slim
 
-# Instala Tesseract OCR com suporte ao idioma português
+# Instala Tesseract e o pacote de idioma português
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
-    tesseract-ocr-por
+    tesseract-ocr-por \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-# Instala as dependências do projeto
 RUN npm install
 
 COPY . .
 
 EXPOSE 3001
 
-# Inicializa o servidor
 CMD [ "node", "server.js" ]
