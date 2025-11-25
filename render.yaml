@@ -27,14 +27,15 @@ services:
         value: categorizar-docs-prod
       - key: CORS_ORIGIN
         fromService:
-          type: web           
+          type: web
           name: categorizador-frontend
-          property: url
+          property: host              
+        transform: "https://" 
 
   # Frontend
-  - type: web                   
+  - type: web
     name: categorizador-frontend
-    env: static                 
+    env: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
