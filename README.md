@@ -1,6 +1,3 @@
-Aqui está o `README.md` atualizado, agora incluindo a seção de Deploy logo no início para facilitar o acesso:
-
-````markdown
 # Categorizador Inteligente de Documentos (AI-Powered)
 
 Este projeto é uma API robusta para **classificação e extração de metadados de documentos PDF** utilizando Inteligência Artificial Generativa. O sistema combina processamento de texto tradicional e OCR com a capacidade analítica de LLMs para estruturar dados não estruturados de diversos contextos.
