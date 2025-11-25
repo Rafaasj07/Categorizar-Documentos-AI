@@ -29,7 +29,8 @@ services:
         fromService:
           type: web
           name: categorizador-frontend
-          property: host 
+          property: host
+        transform: "https://"
 
   # Frontend
   - type: web
@@ -48,3 +49,4 @@ services:
           type: web
           name: categorizador-backend
           envVarKey: RENDER_EXTERNAL_URL
+        transform: value + "/api/"
