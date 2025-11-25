@@ -18,8 +18,14 @@ connectDB().then(() => {
 });
 
 const PORT = process.env.PORT || 3001;
+let allowedOrigin = process.env.CORS_ORIGIN || '*';
+
+if (allowedOrigin !== '*' && !allowedOrigin.startsWith('http')) {
+    allowedOrigin = `https://${allowedOrigin}`;
+}
+
 const corsOptions = {
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: allowedOrigin,
 };
 
 app.use(cors(corsOptions));
@@ -35,4 +41,5 @@ app.use('/api/feedback', feedbackRoute);
 
 app.listen(PORT, async () => {
     console.log(`Servidor rodando na porta ${PORT}`);
+    console.log(`CORS permitido para: ${allowedOrigin}`);
 });
