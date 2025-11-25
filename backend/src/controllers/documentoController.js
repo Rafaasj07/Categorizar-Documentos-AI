@@ -18,6 +18,7 @@ import { promptRegimentoInterno } from '../prompts/gestaoEducacional/promptRegim
 import { promptPortariaAto } from '../prompts/gestaoEducacional/promptPortariaAto.js';
 import { promptRegistroMatricula } from '../prompts/gestaoEducacional/promptRegistroMatricula.js';
 import { promptDocEducacionalGenerico } from '../prompts/gestaoEducacional/promptDocEducacionalGenerico.js';
+import { verificarEGerenciarArmazenamento } from '../services/storageCleanupService.js';
 
 // Normaliza nome da categoria para formato padrão
 const padronizarCategoria = (categoria) => {
@@ -88,6 +89,9 @@ export const categorizarComArquivo = async (req, res) => {
 
         await registrarMetadados(metadadosIniciais);
         await atualizarMetadados(doc_uuid, "PROCESSING", null);
+
+        // Verifica armazenamento após upload com sucesso (executa em background)
+        verificarEGerenciarArmazenamento().catch(err => console.error("Erro na verificação de storage:", err));
 
         console.log(`[EXTRACT] Extraindo texto/imagens do PDF...`);
         const extracaoPorPagina = await extrairTextoPdfComBiblioteca(req.file.buffer);
