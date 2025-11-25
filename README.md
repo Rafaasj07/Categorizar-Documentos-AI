@@ -120,6 +120,3 @@ src/
 ├── services/       # Integrações (R2, OpenRouter, OCR)
 └── utils/          # Helpers
 ```
-
-```
-```
