@@ -1,122 +1,168 @@
-# Categorizador Inteligente de Documentos (AI-Powered)
+# Categorizador Inteligente de Documentos
 
-Este projeto é uma API robusta para **classificação e extração de metadados de documentos PDF** utilizando Inteligência Artificial Generativa. O sistema combina processamento de texto tradicional e OCR com a capacidade analítica de LLMs para estruturar dados não estruturados de diversos contextos.
+## 🎥 Vídeo Pitch
+
+🔗 **Assista ao vídeo-pitch da equipe:** [https://www.youtube.com/watch?v=N_9-NKpeZ7Q](https://www.youtube.com/watch?v=N_9-NKpeZ7Q)
+
+---
+
+## 🗂️ Artefatos (Drive)
+
+Todos os documentos, atas, diagramas e relatórios do grupo estão disponíveis no Google Drive oficial do projeto:
+
+🔗 **Acesse aqui:** [Pasta G01-GoLedger no Google Drive](https://drive.google.com/drive/folders/1lm-dzjdQkykmR-7wladXBhUGkrSa5wtj?usp=sharing)
+
+---
 
 ## 🚀 Deploy
 
-A aplicação está disponível em produção. Acesse o frontend conectado à API através do link abaixo:
+🔗 **Repositório da Versão de Deploy:** [https://github.com/Rafaasj07/Categorizar-Documentos-AI](https://github.com/Rafaasj07/Categorizar-Documentos-AI)
 
-🔗 **Acessar Sistema:** [https://categorizador-frontend.onrender.com](https://categorizador-frontend.onrender.com)
+A aplicação está rodando em ambiente de produção no Render:
 
-> **Nota:** O ambiente de produção utiliza **Cloudflare R2** para armazenamento e **MongoDB Atlas** para dados, garantindo escalabilidade na nuvem.
+🔗 **Acesse o Sistema:** [https://categorizador-frontend.onrender.com](https://categorizador-frontend.onrender.com)
 
----
-
-## 🔎 Visão Geral
-
-A aplicação recebe arquivos PDF, armazena-os de forma segura em Object Storage e executa um pipeline de extração de texto híbrido (texto embutido + OCR). O conteúdo extraído é submetido a prompts otimizados via **OpenRouter (Modelo Mistral 7B)**, retornando um JSON estruturado com as informações cruciais do documento.
-
-### Destaques Técnicos
-- **Pipeline Híbrido**: Utiliza `pdfjs-dist` para texto nativo e `node-tesseract-ocr` para imagens.
-- **Engenharia de Prompt Contextual**: Prompts dinâmicos baseados no tipo do documento (Diplomas, Notas Fiscais, Cartório, etc.).
-- **Armazenamento em Nuvem**: Integração nativa com Cloudflare R2 (S3 Compatible).
-- **Feedback Loop**: Sistema de avaliação da IA pelos usuários.
+> **Nota sobre a Stack em Produção:** Para viabilizar o deploy na nuvem, a arquitetura sofreu adaptações em relação ao ambiente local. O **MinIO** foi substituído pelo **Cloudflare R2** (Object Storage) e o banco de dados local migrou para o **MongoDB Atlas**.
 
 ---
 
-## 🛠️ Stack Tecnológica
+## 📂 Visão Geral da Solução
 
-### Backend & Infraestrutura
-- **Runtime**: Node.js (Express)
-- **Banco de Dados**: MongoDB (Mongoose)
-- **Storage**: Cloudflare R2 (AWS SDK v3)
-- **IA/LLM**: OpenRouter API (Mistral 7B Instruct)
-- **Processamento de PDF**: PDF.js (`pdfjs-dist`)
-- **OCR**: Tesseract (`node-tesseract-ocr`)
-- **Containerização**: Docker & Docker Compose
-- **Documentação**: Swagger (OpenAPI 3.0)
+Este projeto implementa um **Categorizador Inteligente de Documentos PDF**. Ele utiliza **Inteligência Artificial Generativa** (através da plataforma **OpenRouter**) para analisar, categorizar e extrair metadados de documentos de forma automatizada e eficiente.
 
-### Segurança
-- **Autenticação**: JWT (JSON Web Tokens)
-- **Hashing**: Bcryptjs
-- **Controle de Acesso**: Middleware de proteção por role (`admin`/`user`)
+A arquitetura é baseada em Docker Compose e Node.js, orquestrando um pipeline robusto de pré-processamento (extração de texto e OCR) e análise de IA.
 
 ---
 
-## ✨ Funcionalidades da API
+## ✨ Funcionalidades Principais
 
-### 1. Gestão de Documentos
-- **Upload e Análise**: Envio de PDFs com seleção de contexto específico.
-- **Extração de Metadados**: Identificação automática de campos (Datas, Valores, CNPJs, Pessoas).
-- **Download**: Geração de link seguro ou stream do arquivo original.
-- **Exclusão em Lote**: Remoção simultânea de arquivos e metadados.
-
-### 2. Busca e Organização
-- **Filtros Avançados**: Busca Full-text nos metadados, por categoria ou data.
-- **Paginação**: Sistema baseado em tokens (`nextToken`) para alta performance.
-- **Categorias Dinâmicas**: Listagem das categorias identificadas.
-
-### 3. Sistema de Feedback
-- **Avaliação**: Usuários avaliam a precisão da IA (1-5 estrelas).
-- **Monitoramento**: Agregação de notas para ajuste de prompts.
+* 🔑 **Autenticação Própria com JWT**: Sistema completo de cadastro e login (`bcryptjs`, `jsonwebtoken`).
+* 🛡 **Controle de Acesso por Papel (Role)**: Perfis de `user` (upload/busca) e `admin` (gerenciamento total).
+* 📤 **Upload de Documentos em Lote**: Envio de até 10 arquivos PDF simultaneamente.
+* 🤖 **Análise Híbrida com IA na Nuvem**: O pipeline de processamento combina a extração de texto embutido com `pdfjs-dist` e **OCR** (`node-tesseract-ocr`) para conteúdo em imagens. O texto limpo e otimizado é enviado ao modelo **Mistral 7B (via OpenRouter)** para extração de metadados.
+* 🎯 **Contextos de Análise Otimizados**: Seleção de contexto (`Nota Fiscal`, `Gestão Educacional`, `SEI`, `Cartório`, etc.) no frontend para direcionar a IA com prompts estruturados e específicos, garantindo maior precisão.
+* ✏️ **Edição de Metadados (Admin)**: Administradores podem visualizar e corrigir o JSON bruto dos metadados extraídos pela IA diretamente pela interface.
+* ⭐ **Sistema de Feedback**: Usuários podem avaliar a precisão da categorização (Rating 1-5), com visualização agregada e restrita a administradores.
+* 🔎 **Busca e Paginação**: Pesquisa por nome, categoria ou conteúdo do resumo, com paginação baseada em tokens e ordenação.
+* 📥 **Download Seguro**: Download do arquivo original e geração de um PDF formatado com os metadados extraídos (via `jsPDF` no frontend).
 
 ---
 
-## ⚙️ Configuração e Instalação
+## 🏗 Arquitetura e Tecnologias
 
-### Pré-requisitos
-- Node.js v18+
-- Docker (opcional)
-- Conta Cloudflare R2 (ou S3 compatível)
-- Chave OpenRouter
-- MongoDB
+O projeto é estruturado como um monorepo, dividido em `frontend` e `backend`.
 
-### Variáveis de Ambiente (.env)
-```env
-PORT=3001
-MONGO_URI=mongodb+srv://...
-JWT_SECRET=sua_chave_secreta
-R2_BUCKET_NAME=nome-do-bucket
-R2_ACCESS_KEY=sua_key
-R2_SECRET_KEY=sua_secret
-R2_ENDPOINT_URL=https://<id>.r2.cloudflarestorage.com
-OPENROUTER_API_KEY=sua_chave_ia
+### Frontend (`frontend`)
+
+* ⚛️ **React (Vite)**
+* 🎨 **Tailwind CSS**
+* 📦 **jsPDF & jsPDF-AutoTable**: Para geração de PDF de metadados no lado do cliente.
+
+### Backend (`backend`)
+
+* 🟢 **Node.js & Express**
+* 🤖 **OpenRouter**: Serviço de IA (Mistral).
+* ✍️ **node-tesseract-ocr**: OCR para extração de texto de imagens em PDF.
+* 📑 **pdfjs-dist**: Para extração eficiente de texto embutido.
+
+### ☁️ Infraestrutura e Armazenamento
+
+A aplicação suporta duas configurações de infraestrutura:
+
+1. **Local (Docker Compose):**
+
+   * 🐋 **MinIO**: Armazenamento de objetos (S3 Compatible).
+   * 💾 **MongoDB Local**: Persistência de dados.
+2. **Produção (Deploy/Render):**
+
+   * ☁️ **Cloudflare R2**: Armazenamento de objetos em nuvem.
+   * 🍃 **MongoDB Atlas**: Banco de dados gerenciado em nuvem.
+
+---
+
+## 📖 Documentação da API (Swagger)
+
+A documentação interativa da API do backend foi implementada usando **Swagger/OpenAPI 3.0**.
+
+### Acesso
+
+A documentação é servida pelo próprio backend Node.js.
+
+* **URL da Documentação (Swagger UI):** `http://localhost:3001/api-docs`
+
+### Configuração
+
+O Swagger é configurado para ler os comentários JSDoc com a sintaxe `@swagger` nos arquivos de rota (ex: `authRoute.js`, `documentoRoute.js`, `feedbackRoute.js`).
+
+### Esquema de Segurança
+
+Todos os endpoints protegidos requerem autenticação via **Bearer Token (JWT)**, obtido através da rota de login (`/api/auth/login`).
+
+---
+
+## ⚙️ Como Rodar Localmente (Ambiente Docker)
+
+### 🔧 Pré-requisitos
+
+* **Docker** e **Docker Compose** instalados.
+* **Node.js v18+**.
+* **NPM** ou **Yarn**.
+
+### 🚀 Passo 1: Configurar e Iniciar os Serviços de Backend
+
+1. **Navegue até a raiz do projeto**:
+
+   ```bash
+   cd Categorizar-Documentos-AI
 ````
 
-### Rodando Localmente
+2.  **Configure as variáveis de ambiente**:
 
-1.  **Instale as dependências:**
+      * Crie ou edite o arquivo `./backend/.env`. Se não existir, copie o `.env.example`.
+      * Preencha sua chave da OpenRouter: `OPENROUTER_API_KEY=sua-chave-aqui`.
+      * As configurações do MinIO e MongoDB já estão pré-definidas para funcionar com o `docker-compose.yml` padrão.
+
+3.  **Suba todos os containers**:
+
     ```bash
-    npm install
+    docker-compose up --build
     ```
-2.  **Dependência de Sistema (OCR):**
-      - Certifique-se de ter o `tesseract-ocr` instalado no seu SO.
-3.  **Inicie o servidor:**
-    ```bash
-    npm run dev
-    ```
-    *Ou via Docker:* `docker-compose up --build`
 
------
+      * Aguarde a inicialização dos serviços (MongoDB, MinIO e Backend).
 
-## 📖 Documentação (Swagger)
+### 🎨 Passo 2: Acessar o Swagger e Iniciar o Frontend
 
-A API possui documentação interativa gerada automaticamente.
+1.  **Acesse a Documentação da API**:
 
-🔗 **Local:** `http://localhost:3001/api-docs`
+      * Abra seu navegador e acesse: `http://localhost:3001/api-docs`
 
------
+2.  **Inicie o Frontend**:
 
-## 📂 Estrutura do Projeto
+      * Em um **novo terminal**, navegue até a pasta do frontend:
 
-```bash
-src/
-├── config/         # Configurações (DB, Swagger)
-├── controllers/    # Lógica de negócio
-├── middleware/     # Auth e validações
-├── models/         # Schemas Mongoose
-├── prompts/        # Engenharia de prompts por contexto
-├── routes/         # Rotas da API
-├── services/       # Integrações (R2, OpenRouter, OCR)
-└── utils/          # Helpers
+        ```bash
+        cd frontend
+        ```
+
+      * Instale as dependências:
+
+        ```bash
+        npm install
+        ```
+
+      * Inicie o servidor de desenvolvimento:
+
+        ```bash
+        npm run dev
+        ```
+
+### ✅ Passo 3: Acesse a Aplicação
+
+  * Abra seu navegador e acesse **`http://localhost:5173`**.
+
+  * Use as credenciais padrão (criadas automaticamente na primeira execução do servidor) para testar:
+
+      * **Administrador**: `user: admin` / `senha: admin`
+      * **Usuário Comum**: `user: user` / `senha: user`
+
 ```
