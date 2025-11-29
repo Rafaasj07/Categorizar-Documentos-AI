@@ -73,7 +73,7 @@ const Login = () => {
                             disabled={loading}
                         >
                             {loading && <i className='bx bx-loader-alt animate-spin'></i>}
-                            {loading ? 'Entrando (Pode demorar)...' : 'Entrar'}
+                            {loading ? 'Entrando...' : 'Entrar'}
                         </button>
                     </div>
                 </form>
