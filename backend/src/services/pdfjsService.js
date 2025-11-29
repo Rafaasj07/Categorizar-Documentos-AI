@@ -70,7 +70,7 @@ export async function extrairTextoPdfComBiblioteca(dataBuffer) {
                                 const destData = imageData.data;
 
                                 if (srcData.length === width * height * 4) {
-                                    destData.set(srcData); 
+                                    destData.set(srcData);
                                 } else if (srcData.length === width * height * 3) {
                                     for (let k = 0, j = 0; k < srcData.length; k += 3, j += 4) {
                                         destData[j] = srcData[k];
