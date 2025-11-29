@@ -10,7 +10,7 @@ const Login = () => {
     const { login, isAuthenticated, loading } = useAuth();
     const navigate = useNavigate();
 
-    // Redireciona para a home caso o usuário já esteja autenticado
+    // Redireciona se o usuário já estiver logado
     useEffect(() => {
         if (isAuthenticated) {
             navigate('/');
@@ -21,7 +21,7 @@ const Login = () => {
         setMensagem('');
     };
 
-    // Gerencia submissão do formulário, chamando API de login e tratando erros
+    // Processa o login via contexto de autenticação
     const handleSubmit = async (e) => {
         e.preventDefault();
         limparFeedback();
@@ -34,7 +34,17 @@ const Login = () => {
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-4">
+        <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-3">
+            <div className="w-full max-w-md mb-6 bg-yellow-900/20 border border-yellow-600/50 p-4 rounded-lg animate-pulse">
+                <p className="text-yellow-200 text-sm text-center flex flex-col gap-1">
+                    <span className="font-bold flex items-center justify-center gap-1">
+                        <i className='bx bx-time-five'></i> Servidor em Hibernação
+                    </span>
+                    O sistema está hospedado em plataforma gratuita.
+                    O primeiro acesso pode levar até 1 minuto para carregar. Por favor, aguarde.
+                </p>
+            </div>
+
             <div className="w-full max-w-md p-8 space-y-6 bg-gray-900 rounded-xl shadow-lg border border-gray-700">
                 <div className="flex flex-col items-center">
                     <img src={icone} alt="Logo" className="w-20 h-20 mb-4" />
@@ -63,7 +73,7 @@ const Login = () => {
                             disabled={loading}
                         >
                             {loading && <i className='bx bx-loader-alt animate-spin'></i>}
-                            {loading ? 'Entrando...' : 'Entrar'}
+                            {loading ? 'Entrando (Pode demorar)...' : 'Entrar'}
                         </button>
                     </div>
                 </form>
