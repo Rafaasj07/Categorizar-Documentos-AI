@@ -164,4 +164,3 @@ Todos os endpoints protegidos requerem autenticação via **Bearer Token (JWT)**
 
       * **Administrador**: `user: admin` / `senha: admin`
       * **Usuário Comum**: `user: user` / `senha: user`
-
