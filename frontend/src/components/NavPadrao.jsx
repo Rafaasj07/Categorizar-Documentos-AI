@@ -14,13 +14,13 @@ function NavPadrao({ carregando: carregandoDocs }) {
   const getLinkClasses = (path) => {
     const isActive = location.pathname === path;
     let classes = `flex items-center gap-2 border font-semibold py-2 px-6 rounded-full transition duration-300 ease-in-out `;
-    
+
     if (isActive) {
       classes += " bg-indigo-600 text-white border-indigo-600 ";
     } else {
       classes += " border-indigo-600 text-indigo-400 bg-transparent hover:bg-indigo-600 hover:text-white ";
     }
-    
+
     if (isLoading) {
       classes += " opacity-50 cursor-not-allowed ";
     } else {
@@ -51,22 +51,25 @@ function NavPadrao({ carregando: carregandoDocs }) {
               <Link
                 to="/categorizar"
                 className={getLinkClasses('/categorizar')}
-                // Bloqueia navegação durante carregamento
-                onClick={e => isLoading && e.preventDefault()}
+                onClick={e => {
+                  if (isLoading) return e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               >
                 <i className="bx bx-folder-open"></i> Categorizar
               </Link>
-
               <Link
                 to="/buscar"
                 className={getLinkClasses('/buscar')}
-                onClick={e => isLoading && e.preventDefault()}
+                onClick={e => {
+                  if (isLoading) return e.preventDefault();
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               >
                 <i className="bx bx-search"></i> Buscar
               </Link>
             </>
           )}
-
           <button onClick={logout} className={sairClasses} disabled={isLoading}>
             {loadingAuth ? <i className='bx bx-loader-alt animate-spin'></i> : <i className='bx bx-log-out'></i>}
             Sair

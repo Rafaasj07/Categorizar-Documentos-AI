@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 const FormularioDocumento = ({ aoAnalisar, carregando }) => {
   const [promptUsuario, setPromptUsuario] = useState('');
   const [arquivos, setArquivos] = useState([]);
-  const [nomesArquivos, setNomesArquivos] = useState([]);
   const [arquivoErro, setArquivoErro] = useState('');
   const [contextoSelecionado, setContextoSelecionado] = useState('Padrão');
   const [subContextoSelecionado, setSubContextoSelecionado] = useState('');
@@ -26,7 +25,7 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
     { value: 'Outro', label: 'Outro / Não sei (Genérico)' }
   ];
 
-  // Reseta o subcontexto quando a categoria principal muda para evitar inconsistências
+  // Reseta subcontexto se o contexto principal mudar
   useEffect(() => {
     if (contextoSelecionado !== 'Gestão Educacional') {
       setSubContextoSelecionado(''); 
@@ -35,45 +34,57 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
     }
   }, [contextoSelecionado]);
 
-  // Valida quantidade e tamanho dos arquivos, atualizando estados ou definindo erros
+  // Processa novos arquivos, valida tamanho/quantidade e adiciona à lista existente
   const aoMudarArquivo = (evento) => {
-    const files = evento.target.files;
-    setArquivos([]);
-    setNomesArquivos([]);
+    const novosArquivos = Array.from(evento.target.files || []);
     setArquivoErro('');
-    if (!files || files.length === 0) return;
 
-    if (files.length > MAXIMO_ARQUIVOS) {
-      setArquivoErro(`Selecione no máximo ${MAXIMO_ARQUIVOS} arquivos.`);
+    if (novosArquivos.length === 0) return;
+
+    // Verificação Adicionada: Impede adição se ultrapassar o limite, mas mantém os anteriores
+    if (arquivos.length + novosArquivos.length > MAXIMO_ARQUIVOS) {
+      setArquivoErro(`Mais de ${MAXIMO_ARQUIVOS} arquivos selecionados.`);
       evento.target.value = ''; 
       return;
     }
 
     const arquivosValidos = [];
-    const nomesValidos = [];
     let erroEncontrado = '';
 
-    // Itera para verificar tamanho individual de cada arquivo
-    for (const file of files) {
+    // Filtra duplicatas e valida tamanho
+    for (const file of novosArquivos) {
+      const jaExiste = arquivos.some(a => a.name === file.name && a.size === file.size);
+      
+      if (jaExiste) continue; 
+
       if (file.size > TAMANHO_MAXIMO_EM_BYTES) {
         const tamanhoEmMb = (TAMANHO_MAXIMO_EM_BYTES / (1024 * 1024)).toFixed(1);
         erroEncontrado = `Arquivo "${file.name}" excede ${tamanhoEmMb}MB.`;
         break;
       }
       arquivosValidos.push(file);
-      nomesValidos.push(file.name);
     }
 
     if (erroEncontrado) {
       setArquivoErro(erroEncontrado);
-      evento.target.value = ''; 
     } else {
-      setArquivos(arquivosValidos);
-      setNomesArquivos(nomesValidos);
+      setArquivos(prev => [...prev, ...arquivosValidos]);
     }
+    
+    evento.target.value = ''; 
   };
 
-  // Envia dados validados para função de callback pai
+  // Remove um arquivo específico da lista pelo índice
+  const removerArquivo = (index) => {
+    setArquivos(prev => prev.filter((_, i) => i !== index));
+    setArquivoErro(''); 
+  };
+
+  // Dispara o clique no input file oculto
+  const abrirSeletorArquivos = () => {
+    document.getElementById('input-arquivo-oculto').click();
+  };
+
   const aoSubmeter = (evento) => {
     evento.preventDefault();
     aoAnalisar(contextoSelecionado, subContextoSelecionado, promptUsuario, arquivos);
@@ -84,24 +95,51 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
       <form onSubmit={aoSubmeter}>
 
         <div className="mb-6">
-          <label htmlFor="arquivo" className="block text-gray-300 text-lg font-semibold mb-2">
-            1. Envie até 10 PDFs (Máx: 5MB cada)
+          <label className="block text-gray-300 text-lg font-semibold mb-2">
+            1. Arquivos (Máx: {MAXIMO_ARQUIVOS} | 5MB cada)
           </label>
+          
+          {/* Input oculto controlado pelo botão abaixo */}
           <input
-            type="file" id="arquivo" accept=".pdf"
-            onChange={aoMudarArquivo} disabled={carregando} multiple
-            className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gray-700 file:text-gray-200 hover:file:bg-gray-600 cursor-pointer"
+            type="file"
+            id="input-arquivo-oculto"
+            accept=".pdf"
+            onChange={aoMudarArquivo}
+            disabled={carregando}
+            multiple
+            className="hidden"
           />
-          {nomesArquivos.length > 0 && (
-            <div className="text-green-400 text-sm mt-2">
-              <p>{nomesArquivos.length} arquivo(s) selecionado(s):</p>
-              <ul className="list-disc list-inside">
-                {nomesArquivos.map((name, index) => (
-                  <li key={index} className="break-all">{name}</li>
-                ))}
-              </ul>
+
+          <button
+            type="button"
+            onClick={abrirSeletorArquivos}
+            disabled={carregando || arquivos.length >= MAXIMO_ARQUIVOS}
+            className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+          >
+            <i className='bx bx-plus-circle text-xl'></i>
+            Adicionar PDF
+          </button>
+
+          {/* Lista de arquivos selecionados com opção de remoção */}
+          {arquivos.length > 0 && (
+            <div className="bg-gray-800 rounded-lg p-3 border border-gray-700 space-y-2">
+              {arquivos.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="flex justify-between items-center text-sm bg-gray-700/50 p-2 rounded">
+                  <span className="text-gray-200 truncate mr-2">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removerArquivo(index)}
+                    className="text-red-400 hover:text-red-300 transition-colors p-1"
+                    title="Remover arquivo"
+                  >
+                    <i className='bx bx-trash text-lg'></i>
+                  </button>
+                </div>
+              ))}
+              <p className="text-gray-500 text-xs text-right mt-2">Total: {arquivos.length} arquivo(s)</p>
             </div>
           )}
+
           {arquivoErro && <p className="text-red-500 text-sm mt-2">{arquivoErro}</p>}
         </div>
 
@@ -125,7 +163,6 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
             <p className="text-gray-400 text-sm mt-1">Define o prompt a ser usado pela IA.</p>
         </div>
 
-        {/* Renderiza seletor específico condicionalmente para Gestão Educacional */}
         {contextoSelecionado === 'Gestão Educacional' && (
           <div className="mb-6 pl-4 border-l-2 border-indigo-500"> 
             <label htmlFor="subcontexto" className="block text-gray-300 text-lg font-semibold mb-2">
@@ -170,11 +207,9 @@ const FormularioDocumento = ({ aoAnalisar, carregando }) => {
         <div className="flex items-center justify-center mt-8">
           <button
             type="submit"
-            // Bloqueia envio se carregando, sem arquivos ou sem subcontexto obrigatório
             disabled={
                 carregando ||
-                arquivos.length === 0 ||
-                !!arquivoErro ||
+                arquivos.length === 0 || 
                 (contextoSelecionado === 'Gestão Educacional' && !subContextoSelecionado)
             }
             className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 text-lg rounded-lg focus:outline-none focus:shadow-outline disabled:bg-gray-600 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105"

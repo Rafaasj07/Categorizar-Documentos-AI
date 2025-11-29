@@ -58,10 +58,34 @@ export async function extrairTextoPdfComBiblioteca(dataBuffer) {
 
                             // Converte dados de pixel para PNG usando Canvas
                             if (imgData && imgData.data) {
-                                const canvas = createCanvas(imgData.width, imgData.height);
+                                const width = imgData.width;
+                                const height = imgData.height;
+
+                                const canvas = createCanvas(width, height);
                                 const ctx = canvas.getContext('2d');
-                                const imageData = ctx.createImageData(imgData.width, imgData.height);
-                                imageData.data.set(imgData.data);
+                                const imageData = ctx.createImageData(width, height);
+
+                                // Ajusta os canais de cor para garantir formato RGBA compatível com o Canvas
+                                const srcData = imgData.data;
+                                const destData = imageData.data;
+
+                                if (srcData.length === width * height * 4) {
+                                    destData.set(srcData); 
+                                } else if (srcData.length === width * height * 3) {
+                                    for (let k = 0, j = 0; k < srcData.length; k += 3, j += 4) {
+                                        destData[j] = srcData[k];
+                                        destData[j + 1] = srcData[k + 1];
+                                        destData[j + 2] = srcData[k + 2];
+                                        destData[j + 3] = 255;
+                                    }
+                                } else if (srcData.length === width * height) {
+                                    for (let k = 0, j = 0; k < srcData.length; k++, j += 4) {
+                                        destData[j] = srcData[k];
+                                        destData[j + 1] = srcData[k];
+                                        destData[j + 2] = srcData[k];
+                                        destData[j + 3] = 255;
+                                    }
+                                }
                                 ctx.putImageData(imageData, 0, 0);
                                 images.push(canvas.toBuffer('image/png'));
                             }
