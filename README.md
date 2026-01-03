@@ -15,9 +15,6 @@ Todos os documentos, atas, diagramas e relatórios do grupo estão disponíveis 
 ---
 
 ## 🚀 Deploy
-
-🔗 **Repositório da Versão de Deploy:** [https://github.com/Rafaasj07/Categorizar-Documentos-AI](https://github.com/Rafaasj07/Categorizar-Documentos-AI)
-
 A aplicação está rodando em ambiente de produção no Render:
 
 🔗 **Acesse o Sistema:** [https://categorizador-frontend.onrender.com](https://categorizador-frontend.onrender.com)
