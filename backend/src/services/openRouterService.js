@@ -15,7 +15,7 @@ export async function invocarIA(prompt, tentativasMaximas = 3) {
             console.log(`Invocando API OpenRouter (Tentativa ${tentativaAtual}/${tentativasMaximas})...`);
 
             const payload = {
-                model: "mistralai/mistral-7b-instruct:free", 
+                model: "meta-llama/llama-3.3-70b-instruct:free", 
                 messages: [
                     {
                         role: "system",
