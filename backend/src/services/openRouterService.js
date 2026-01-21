@@ -8,28 +8,27 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 export async function invocarIA(prompt, tentativasMaximas = 3) {
     let tentativaAtual = 0;
 
-    // Loop de tentativas para garantir resiliência a falhas
+    // Loop para garantir o processamento mesmo em caso de instabilidade na rede
     while (tentativaAtual < tentativasMaximas) {
         tentativaAtual++;
         try {
             console.log(`Invocando API OpenRouter (Tentativa ${tentativaAtual}/${tentativasMaximas})...`);
 
             const payload = {
-                model: "meta-llama/llama-3.3-70b-instruct:free", 
+                model: "google/gemini-2.0-flash-exp:free",
                 messages: [
                     {
                         role: "system",
-                        content: "Você é um analista de documentos sênior, especializado em extrair informações estruturadas de textos complexos com altíssima precisão."
+                        content: "Você é um analista de documentos sênior. Extraia informações estruturadas com precisão e responda exclusivamente em JSON."
                     },
                     {
                         role: "user",
-                        content: prompt 
+                        content: prompt
                     }
-                ],
-                response_format: { type: "json_object" }, 
+                ]
             };
 
-            // Executa requisição POST autenticada
+            // Executa requisição POST para o OpenRouter com o modelo Gemini
             const response = await axios.post(OPENROUTER_API_URL, payload, {
                 headers: {
                     'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
@@ -48,12 +47,12 @@ export async function invocarIA(prompt, tentativasMaximas = 3) {
                 console.error("Detalhes do erro:", error.response.data);
             }
 
-            // Lança exceção se o limite de tentativas for excedido
+            // Lança exceção definitiva ao atingir o limite máximo de tentativas
             if (tentativaAtual >= tentativasMaximas) {
                 throw new Error("Não foi possível obter resposta da IA após várias tentativas.");
             }
 
-            // Aplica delay de 2 segundos antes da próxima tentativa
+            // Pausa a execução por 2 segundos antes de tentar novamente
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
     }
