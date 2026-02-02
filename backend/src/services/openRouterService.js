@@ -15,7 +15,7 @@ export async function invocarIA(prompt, tentativasMaximas = 3) {
             console.log(`Invocando API OpenRouter (Tentativa ${tentativaAtual}/${tentativasMaximas})...`);
 
             const payload = {
-                model: "google/gemini-2.0-flash-exp:free",
+                model: "openrouter/free",
                 messages: [
                     {
                         role: "system",
